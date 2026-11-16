@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import tempfile
@@ -144,6 +145,29 @@ class NativeSkillLoadingTests(unittest.IsolatedAsyncioTestCase):
             if call["name"] == "read_file"
         ]
 
+    async def test_compiled_graph_keeps_parallel_request_state_isolated(self) -> None:
+        prompts = ["pergunta A", "pergunta B", "pergunta C"]
+        model = ScriptedChatModel(
+            responses=[AIMessage(content="resposta") for _ in prompts]
+        )
+        graph = _build_agent(model=model)
+
+        results = await asyncio.gather(
+            *(
+                graph.ainvoke({"messages": [HumanMessage(content=prompt)]})
+                for prompt in prompts
+            )
+        )
+
+        for prompt, result in zip(prompts, results, strict=True):
+            human_messages = [
+                message.content
+                for message in result["messages"]
+                if isinstance(message, HumanMessage)
+            ]
+            self.assertEqual(human_messages, [prompt])
+            self.assertEqual(result["messages"][-1].content, "resposta")
+
     async def test_a_greeting_discovers_metadata_without_agent_read_file(self) -> None:
         expected_reply = "Olá! Tudo bem, e com você?"
         result, _ = await self.invoke("Olá, tudo bem?", AIMessage(content=expected_reply))
@@ -276,6 +300,30 @@ class NativeSkillLoadingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Skills activated by read_file: none", output)
         self.assertIn("Skills discovered but not activated: financial-assistant", output)
         self.assertIn("Skill file read failed: /skills/financial-assistant/SKILL.md", output)
+
+    async def test_observer_handles_ainvoke_without_discovery_metadata(self) -> None:
+        model = ScriptedChatModel(
+            responses=[
+                read_skill_call("financial-assistant", call_id="ainvoke-read"),
+                AIMessage(content="Resposta simulada."),
+            ]
+        )
+        result = await _build_agent(model=model).ainvoke(
+            {"messages": [HumanMessage(content="Explique juros compostos")]}
+        )
+
+        self.assertNotIn("skills_metadata", result)
+
+        with self.assertLogs("src.agent", level="INFO") as logs:
+            log_skill_observability(result)
+
+        output = "\n".join(logs.output)
+        self.assertIn("Skills discovery metadata unavailable in final state", output)
+        self.assertIn(
+            "Skills activated by read_file: financial-assistant", output
+        )
+        self.assertNotIn("Skills discovered: none", output)
+        self.assertNotIn("Skills discovered but not activated:", output)
 
     def test_h2_reading_another_skill_md_path_is_not_activation(self) -> None:
         nested_path = "/skills/financial-assistant/references/SKILL.md"

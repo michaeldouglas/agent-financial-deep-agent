@@ -1,36 +1,37 @@
 import logging
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import HTTPException
 
-from src.agent import answer
-from src.schemas import ChatRequest, ChatResponse
+from src.routes import router
 
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
-app = FastAPI()
+app = FastAPI(
+    title="API do Assistente Financeiro",
+    description=(
+        "API em português do Brasil. O chat também responde em inglês quando "
+        "a mensagem do usuário estiver nesse idioma."
+    ),
+)
+
+
+def _cors_allowed_origins() -> list[str]:
+    configured_origins = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
+    return [
+        origin.strip()
+        for origin in configured_origins.split(",")
+        if origin.strip()
+    ]
 
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
-
-
-@app.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(payload: ChatRequest) -> ChatResponse:
-    try:
-        return ChatResponse(resposta=await answer(payload.message))
-    except Exception as e:
-        logger.exception("Erro no /chat")
-        raise HTTPException(status_code=502, detail="Não foi possível obter resposta do agente.") from e
+app.include_router(router)

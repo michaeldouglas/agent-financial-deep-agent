@@ -2,6 +2,7 @@
 
 from deepagents.backends import CompositeBackend, FilesystemBackend, StateBackend
 from deepagents.middleware.filesystem import FilesystemMiddleware, FilesystemPermission
+from deepagents.middleware.skills import SkillsMiddleware
 
 from .config import SKILLS_ROOT, SKILLS_SOURCE
 
@@ -34,6 +35,37 @@ def create_skills_backend() -> CompositeBackend:
                 virtual_mode=True,
             ),
         },
+    )
+
+
+def discover_skills() -> list[dict[str, str]]:
+    """Return the catalog discovered by Deep Agents' native SkillsMiddleware."""
+    middleware = SkillsMiddleware(
+        backend=create_skills_backend(),
+        sources=[SKILLS_SOURCE],
+    )
+    state = middleware.before_agent(
+        {"skills_metadata": None},
+        runtime=None,  # type: ignore[arg-type]
+        config={},  # type: ignore[arg-type]
+    )
+    if state is None:
+        return []
+
+    errors = state.get("skills_load_errors") or []
+    if errors:
+        raise RuntimeError("Deep Agents could not load the Skills catalog.")
+
+    skills = state.get("skills_metadata") or []
+    return sorted(
+        [
+            {
+                "name": skill["name"],
+                "description": skill["description"],
+            }
+            for skill in skills
+        ],
+        key=lambda skill: skill["name"],
     )
 
 
