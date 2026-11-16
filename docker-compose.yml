@@ -3,8 +3,27 @@ services:
     build:
       context: ./agent-financial
       dockerfile: Dockerfile
+    command:
+      - uv
+      - run
+      - --locked
+      - uvicorn
+      - --app-dir
+      - /workspace
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --reload
+      - --reload-dir
+      - /workspace
+      - app:app
     env_file:
       - ./agent-financial/.env
+    volumes:
+      - ./agent-financial/app.py:/workspace/app.py
+      - ./agent-financial/src:/workspace/src
+      - ./agent-financial/skills:/workspace/skills
     ports:
       - "8000:8000"
     healthcheck:
@@ -17,16 +36,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
-    develop:
-      watch:
-        - action: sync+restart
-          path: ./agent-financial
-          target: /app
-          ignore:
-            - .venv/
-            - __pycache__/
-            - "*.pyc"
-
   frontend-financial:
     build:
       context: ./frontend-financial
