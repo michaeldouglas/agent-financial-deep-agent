@@ -88,3 +88,99 @@ textarea {
   overflow-y: hidden;
   padding-block: 0.35rem;
 }
+
+@keyframes typing-dot-bounce {
+  0%,
+  60%,
+  100% {
+    opacity: 0.45;
+    transform: translateY(0) scale(0.9);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.15);
+  }
+}
+
+@keyframes typing-copy-enter {
+  from {
+    opacity: 0.35;
+    transform: translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes typing-avatar-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(99 102 241 / 0.35);
+  }
+
+  50% {
+    box-shadow: 0 0 0 5px rgb(99 102 241 / 0);
+  }
+}
+
+@keyframes typing-bubble-shimmer {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(370%);
+  }
+}
+
+.typing-dot {
+  animation: typing-dot-bounce 1.05s ease-in-out infinite;
+}
+
+.typing-copy {
+  animation: typing-copy-enter 220ms ease-out both;
+}
+
+.typing-avatar {
+  animation: typing-avatar-pulse 1.8s ease-out infinite;
+}
+
+.typing-avatar::after {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid white;
+  border-radius: 9999px;
+  background: #818cf8;
+  content: "";
+}
+
+.typing-bubble {
+  position: relative;
+  overflow: hidden;
+}
+
+.typing-bubble::after {
+  position: absolute;
+  bottom: 0;
+  left: -38%;
+  width: 38%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #818cf8, transparent);
+  animation: typing-bubble-shimmer 1.8s ease-in-out infinite;
+  content: "";
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typing-dot,
+  .typing-copy,
+  .typing-avatar,
+  .typing-bubble::after {
+    animation: none;
+  }
+}
