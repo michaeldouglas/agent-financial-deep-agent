@@ -72,7 +72,6 @@ func main() {
 		func(*http.Request) *mcp.Server { return server },
 		&mcp.StreamableHTTPOptions{
 			Stateless:           true,
-			JSONResponse:        true,
 			MaxRequestBodyBytes: 1 << 20,
 			Logger:              logger,
 		},

@@ -1,24 +1,24 @@
 ---
 name: banking-operations
 description: >-
-  Handles requests about a user's real bank balances, transactions, deposits,
-  spending, or cash flow using authorized read-only tools. Use for
-  account-specific questions in English or Portuguese (saldo bancário,
-  extrato, transações, gastos, depósitos). If no authorized banking tool is
-  connected, state that limitation; do not invent account data or move money.
+  Handles requests about bank balances, transactions, deposits, spending, and
+  cash flow using read-only tools. Use for account-specific questions in
+  English or Portuguese (saldo bancário, extrato, transações, gastos,
+  depósitos). Current demo tools return fictional data; disclose this and never
+  present it as a real bank connection or account activity.
 metadata:
   include_tools: banking_read
 ---
 
 # Banking Operations — Read-Only
 
-Read and analyze financial account data **only** through the authorized `banking_read` tool group. This skill does not enable transfers, payments, or account changes.
+Use the read-only `banking_read` tool group for account queries. The current MCP server returns fictional demo data, not real account activity. This skill does not enable transfers, payments, or account changes.
 
 ## Prerequisites
 
 - The runtime must provide a `banking_read` tool group through `SkillsMiddleware(tools=...)`.
-- The MCP server must authenticate the caller, enforce permissions and tenant separation, and expose only approved tools.
-- If no authenticated bank connection or tool exists, explain the limitation and offer an analysis of data explicitly provided by the user. Never manufacture account results.
+- If a demo tool returns data, clearly label every balance or transaction as fictional test data; never imply a bank account was accessed.
+- If no banking tool is available, explain the limitation and offer to analyze data explicitly provided by the user. Never manufacture account results.
 
 ## Workflow
 

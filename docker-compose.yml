@@ -20,6 +20,11 @@ services:
       - app:app
     env_file:
       - ./agent-financial/.env
+    environment:
+      MCP_FINANCIAL_URL: http://mcp-financial:8081/mcp
+    depends_on:
+      mcp-financial:
+        condition: service_healthy
     volumes:
       - ./agent-financial/app.py:/workspace/app.py
       - ./agent-financial/src:/workspace/src

@@ -11,6 +11,10 @@ load_dotenv()
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SKILLS_ROOT = PROJECT_ROOT / "skills"
 SKILLS_SOURCE = "/skills/"
+MCP_FINANCIAL_URL = os.getenv(
+    "MCP_FINANCIAL_URL",
+    "http://mcp-financial:8081/mcp",
+)
 
 SYSTEM_PROMPT = """Você é um assistente financeiro informativo.
 Explique conceitos com clareza, mostre cálculos quando úteis e peça contexto

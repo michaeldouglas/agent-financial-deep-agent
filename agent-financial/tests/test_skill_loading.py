@@ -15,10 +15,12 @@ from deepagents.backends import CompositeBackend, FilesystemBackend, StateBacken
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.tools import BaseTool, StructuredTool
 from pydantic import Field
 
 from src.agent import _build_agent, answer
 from src.agent_core.observability import log_skill_observability
+from src.agent_core.skills import create_skill_tool_resolver
 
 
 EXPECTED_SKILLS = {
@@ -107,10 +109,15 @@ def message_text(message: BaseMessage) -> str:
 
 
 class NativeSkillLoadingTests(unittest.IsolatedAsyncioTestCase):
-    async def invoke(self, prompt: str, *responses: AIMessage) -> tuple[dict[str, Any], ScriptedChatModel]:
+    async def invoke(
+        self,
+        prompt: str,
+        *responses: AIMessage,
+        mcp_tools: Sequence[BaseTool] = (),
+    ) -> tuple[dict[str, Any], ScriptedChatModel]:
         model = ScriptedChatModel(responses=list(responses))
         result: dict[str, Any] | None = None
-        async for state in _build_agent(model=model).astream(
+        async for state in _build_agent(model=model, mcp_tools=mcp_tools).astream(
             {"messages": [HumanMessage(content=prompt)]},
             stream_mode="values",
         ):
@@ -276,6 +283,106 @@ class NativeSkillLoadingTests(unittest.IsolatedAsyncioTestCase):
         # Deep Agents 0.7.38 adds a generic task tool by default; it is not a
         # filesystem operation and is not a specialized financial subagent.
         self.assertIn("task", names)
+
+    async def test_banking_mcp_tools_are_gated_by_skill_activation(self) -> None:
+        def mock_balance() -> str:
+            return "MOCK: saldo fictício de demonstração."
+
+        def mock_transactions() -> str:
+            return "MOCK: transações fictícias de demonstração."
+
+        def mock_quote(symbol: str) -> str:
+            return f"MOCK: cotação fictícia de {symbol}."
+
+        banking_tools = [
+            StructuredTool.from_function(
+                mock_balance,
+                name="mock_get_account_balance",
+                description="Return a fictional test balance.",
+            ),
+            StructuredTool.from_function(
+                mock_transactions,
+                name="mock_list_transactions",
+                description="Return fictional test transactions.",
+            ),
+        ]
+        market_tool = StructuredTool.from_function(
+            mock_quote,
+            name="mock_get_market_quote",
+            description="Return a fictional test market quote.",
+        )
+        model = ScriptedChatModel(
+            responses=[
+                read_skill_call("banking-operations"),
+                AIMessage(
+                    content="",
+                    tool_calls=[
+                        {
+                            "name": "mock_get_account_balance",
+                            "args": {},
+                            "id": "mock-balance-call",
+                        }
+                    ],
+                ),
+                AIMessage(content="O saldo mostrado é apenas fictício para teste."),
+            ]
+        )
+        result: dict[str, Any] | None = None
+        graph = _build_agent(
+            model=model,
+            mcp_tools=[*banking_tools, market_tool],
+        )
+        async for state in graph.astream(
+            {"messages": [HumanMessage(content="Qual é meu saldo?")]},
+            stream_mode="values",
+        ):
+            result = state
+
+        self.assertIsNotNone(result)
+        self.assertNotIn("mock_get_account_balance", model.bound_tool_bindings[0])
+        self.assertIn("mock_get_account_balance", model.bound_tool_bindings[1])
+        self.assertIn("mock_list_transactions", model.bound_tool_bindings[1])
+        self.assertNotIn("mock_get_market_quote", model.bound_tool_bindings[1])
+        tool_result = next(
+            message
+            for message in result["messages"]
+            if message.type == "tool" and message.tool_call_id == "mock-balance-call"
+        )
+        self.assertIn("MOCK", message_text(tool_result))
+        self.assertEqual(
+            result["messages"][-1].content,
+            "O saldo mostrado é apenas fictício para teste.",
+        )
+
+    def test_skill_tool_resolver_maps_declared_tool_groups(self) -> None:
+        tools = [
+            StructuredTool.from_function(
+                lambda: "mock balance",
+                name="mock_get_account_balance",
+                description="mock balance",
+            ),
+            StructuredTool.from_function(
+                lambda: "mock transactions",
+                name="mock_list_transactions",
+                description="mock transactions",
+            ),
+            StructuredTool.from_function(
+                lambda symbol: symbol,
+                name="mock_get_market_quote",
+                description="mock quote",
+            ),
+        ]
+        resolver = create_skill_tool_resolver(tools)
+
+        self.assertEqual(
+            {tool.name for tool in resolver("banking_read", None)},
+            {"mock_get_account_balance", "mock_list_transactions"},
+        )
+        self.assertEqual(
+            {tool.name for tool in resolver("market_data", None)},
+            {"mock_get_market_quote"},
+        )
+        self.assertEqual(resolver("unknown_group", None), [])
 
     def test_h_read_observer_requires_explicit_tool_success(self) -> None:
         result = {
