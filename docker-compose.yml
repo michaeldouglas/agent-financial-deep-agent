@@ -1,0 +1,45 @@
+services:
+  agent-financial:
+    build:
+      context: ./agent-financial
+      dockerfile: Dockerfile
+    env_file:
+      - ./agent-financial/.env
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./agent-financial
+          target: /app
+          ignore:
+            - .venv/
+            - __pycache__/
+            - "*.pyc"
+
+  frontend-financial:
+    build:
+      context: ./frontend-financial
+      dockerfile: Dockerfile
+    depends_on:
+      agent-financial:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - ./frontend-financial:/app
+      - /app/node_modules
+      - /app/.next
