@@ -1,6 +1,7 @@
 """LangGraph-backed financial assistant using the OpenAI API."""
 
 import time
+from functools import lru_cache
 from typing import Any
 
 from deepagents import create_deep_agent
@@ -33,17 +34,18 @@ def _build_agent(model: BaseChatModel | None = None) -> Any:
     )
 
 
+@lru_cache(maxsize=1)
+def _get_agent() -> Any:
+    """Build the compiled agent once per process for reuse across requests."""
+    return _build_agent()
+
+
 async def answer(message: str) -> str:
     """Run a user message through the agent and return its final answer."""
     started_at = time.perf_counter()
-    result: dict[str, Any] | None = None
-    async for state in _build_agent().astream(
+    result = await _get_agent().ainvoke(
         {"messages": [{"role": "user", "content": message}]},
-        stream_mode="values",
-    ):
-        result = state
-    if result is None:
-        raise RuntimeError("Agent completed without returning a state.")
+    )
 
     log_skill_observability(result)
     log_request_metrics(result, started_at)

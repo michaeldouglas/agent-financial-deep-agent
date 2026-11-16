@@ -25,13 +25,19 @@ def _skill_name_for_path(path: str) -> str | None:
 
 def log_skill_observability(result: dict[str, Any]) -> None:
     """Log native discovery state and only confirmed read_file outcomes."""
+    metadata_available = (
+        "skills_metadata" in result and result["skills_metadata"] is not None
+    )
     skills = result.get("skills_metadata") or []
     discovered = {
         str(skill.get("name")): str(skill.get("path"))
         for skill in skills
         if skill.get("name") and skill.get("path")
     }
-    logger.info("Skills discovered: %s", ",".join(sorted(discovered)) or "none")
+    if metadata_available:
+        logger.info("Skills discovered: %s", ",".join(sorted(discovered)) or "none")
+    else:
+        logger.info("Skills discovery metadata unavailable in final state")
 
     for error in result.get("skills_load_errors") or []:
         logger.warning("Skill discovery failed: %s", error)
@@ -57,20 +63,25 @@ def log_skill_observability(result: dict[str, Any]) -> None:
             else:
                 failed_reads.add(path)
 
-    activated = {
-        name
-        for path in successful_reads
-        if path.endswith("/SKILL.md")
-        if (name := _skill_name_for_path(path)) is not None
-        if discovered.get(name) == path
-    }
-    not_activated = set(discovered) - activated
+    activated: set[str] = set()
+    for path in successful_reads:
+        name = _skill_name_for_path(path)
+        if name is None or path != f"{SKILLS_SOURCE}{name}/SKILL.md":
+            continue
+        if not metadata_available or discovered.get(name) == path:
+            activated.add(name)
+
     logger.info(
         "Skills activated by read_file: %s; files=%s",
         ",".join(sorted(activated)) or "none",
         ",".join(sorted(successful_reads)) or "none",
     )
-    logger.info("Skills discovered but not activated: %s", ",".join(sorted(not_activated)) or "none")
+    if metadata_available:
+        not_activated = set(discovered) - activated
+        logger.info(
+            "Skills discovered but not activated: %s",
+            ",".join(sorted(not_activated)) or "none",
+        )
     for path in sorted(failed_reads):
         logger.warning("Skill file read failed: %s", path)
 
