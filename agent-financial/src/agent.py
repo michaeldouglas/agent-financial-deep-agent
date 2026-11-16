@@ -1,93 +1,50 @@
 """LangGraph-backed financial assistant using the OpenAI API."""
 
-import logging
-import os
-import re
 import time
-from pathlib import Path
 from typing import Any
 
-from deepagents.backends import FilesystemBackend
 from deepagents import create_deep_agent
-from deepagents.middleware.skills import SkillsMiddleware
-from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
+from langchain_core.language_models.chat_models import BaseChatModel
 
-logger = logging.getLogger(__name__)
-
-load_dotenv()
-
-SYSTEM_PROMPT = """Você é um assistente financeiro informativo.
-Explique conceitos com clareza, mostre cálculos quando úteis e peça contexto
-quando a pergunta não trouxer dados suficientes. Não invente dados de mercado
-nem apresente uma resposta como garantia de retorno.
-Seja conciso por padrão; aprofunde quando o usuário pedir ou quando o cálculo exigir."""
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SKILLS_ROOT = PROJECT_ROOT / "skills"
+from .agent_core.config import SKILLS_SOURCE, SYSTEM_PROMPT, create_chat_model
+from .agent_core.observability import log_request_metrics, log_skill_observability
+from .agent_core.skills import (
+    create_filesystem_middleware,
+    create_filesystem_permissions,
+    create_skills_backend,
+)
 
 
-def _load_skill_instructions() -> str:
-    """Load skill bodies once at startup so each request avoids a read_file turn."""
-    instructions = []
-    for skill_file in sorted(SKILLS_ROOT.rglob("SKILL.md")):
-        content = skill_file.read_text(encoding="utf-8")
-        content = re.sub(
-            r"\A---\s*\n.*?\n---\s*\n",
-            "",
-            content,
-            count=1,
-            flags=re.DOTALL,
-        ).strip()
-        if content:
-            instructions.append(content)
-    return "\n\n".join(instructions)
+def _build_agent(model: BaseChatModel | None = None) -> Any:
+    """Create the financial agent, allowing a model to be injected in tests."""
+    backend = create_skills_backend()
+    permissions = create_filesystem_permissions()
+    filesystem_middleware = create_filesystem_middleware(backend, permissions)
+    if model is None:
+        model = create_chat_model()
 
-
-def resolve_skill_tools(name: str, runtime: Any) -> list[Any]:
-    """Resolve named skill tools; skills without registered tools get none."""
-    del runtime
-    return []
-
-
-def _build_agent() -> Any:
-    backend = FilesystemBackend(root_dir=str(PROJECT_ROOT))
-    skill_instructions = _load_skill_instructions()
-    model = ChatOpenAI(
-        model=os.getenv("OPENAI_MODEL", "gpt-6-luna"),
-        reasoning_effort=os.getenv("OPENAI_REASONING_EFFORT", "low"),
-    )
     return create_deep_agent(
         model=model,
         backend=backend,
-        system_prompt=f"{SYSTEM_PROMPT}\n\n{skill_instructions}",
-        middleware=[
-            SkillsMiddleware(
-                backend=backend,
-                sources=["/skills/"],
-                tools=resolve_skill_tools,
-                system_prompt=None,
-            ),
-        ],
+        system_prompt=SYSTEM_PROMPT,
+        skills=[SKILLS_SOURCE],
+        permissions=permissions,
+        middleware=[filesystem_middleware],
     )
 
 
 async def answer(message: str) -> str:
     """Run a user message through the agent and return its final answer."""
     started_at = time.perf_counter()
-    result = await _build_agent().ainvoke(
-        {"messages": [{"role": "user", "content": message}]}
-    )
-    messages = result["messages"]
-    tool_names = [
-        call.get("name", "unknown")
-        for message_item in messages
-        for call in getattr(message_item, "tool_calls", [])
-    ]
-    logger.info(
-        "Agent request completed in %.2fs (%d messages; tools=%s)",
-        time.perf_counter() - started_at,
-        len(messages),
-        ",".join(tool_names) if tool_names else "none",
-    )
-    return messages[-1].text.strip()
+    result: dict[str, Any] | None = None
+    async for state in _build_agent().astream(
+        {"messages": [{"role": "user", "content": message}]},
+        stream_mode="values",
+    ):
+        result = state
+    if result is None:
+        raise RuntimeError("Agent completed without returning a state.")
+
+    log_skill_observability(result)
+    log_request_metrics(result, started_at)
+    return result["messages"][-1].text.strip()
