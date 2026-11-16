@@ -67,7 +67,7 @@ type marketQuoteOutput struct {
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
-	server := newMCPServer()
+	server := newMCPServer(logger)
 	mcpHandler := mcp.NewStreamableHTTPHandler(
 		func(*http.Request) *mcp.Server { return server },
 		&mcp.StreamableHTTPOptions{
@@ -114,7 +114,7 @@ func main() {
 	}
 }
 
-func newMCPServer() *mcp.Server {
+func newMCPServer(logger *slog.Logger) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    serverName,
 		Version: serverVersion,
@@ -132,23 +132,50 @@ func newMCPServer() *mcp.Server {
 		Title:       "Mock: consultar saldo de demonstração",
 		Description: "Returns a fixed fictional balance for local testing only. It is not connected to a bank and must never be presented as a real account balance.",
 		Annotations: readOnlyLocal,
-	}, getMockBalance)
+	}, logToolCall(logger, "mock_get_account_balance", getMockBalance))
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "mock_list_transactions",
 		Title:       "Mock: listar transações de demonstração",
 		Description: "Returns fixed fictional transactions for local testing only. It is not connected to a bank and must never be presented as real account activity.",
 		Annotations: readOnlyLocal,
-	}, listMockTransactions)
+	}, logToolCall(logger, "mock_list_transactions", listMockTransactions))
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "mock_get_market_quote",
 		Title:       "Mock: consultar cotação de demonstração",
 		Description: "Returns a fixed fictional market value for local testing only. It is not a live price or investment offer.",
 		Annotations: readOnlyLocal,
-	}, getMockMarketQuote)
+	}, logToolCall(logger, "mock_get_market_quote", getMockMarketQuote))
 
 	return server
+}
+
+func logToolCall[Input any, Output any](
+	logger *slog.Logger,
+	toolName string,
+	handler func(context.Context, *mcp.CallToolRequest, Input) (*mcp.CallToolResult, Output, error),
+) func(context.Context, *mcp.CallToolRequest, Input) (*mcp.CallToolResult, Output, error) {
+	return func(ctx context.Context, request *mcp.CallToolRequest, input Input) (*mcp.CallToolResult, Output, error) {
+		startedAt := time.Now()
+		result, output, err := handler(ctx, request, input)
+
+		status := "success"
+		level := slog.LevelInfo
+		message := "MCP tool call completed"
+		if err != nil {
+			status = "error"
+			level = slog.LevelWarn
+			message = "MCP tool call failed"
+		}
+
+		logger.LogAttrs(ctx, level, message,
+			slog.String("tool", toolName),
+			slog.String("status", status),
+			slog.Int64("duration_ms", time.Since(startedAt).Milliseconds()),
+		)
+		return result, output, err
+	}
 }
 
 func getMockBalance(_ context.Context, _ *mcp.CallToolRequest, input balanceInput) (*mcp.CallToolResult, balanceOutput, error) {
