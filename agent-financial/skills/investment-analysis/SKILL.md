@@ -1,10 +1,11 @@
 ---
 name: investment-analysis
 description: >-
-  Compares investment alternatives, calculates potential returns and costs,
-  explains portfolio risks, and evaluates products such as CDBs, government
-  bonds, funds, and ETFs. Use for investment simulations, yield comparisons,
-  portfolio education, or questions requiring current market rates and prices.
+  Compares investment products and potential returns, including CDBs,
+  government bonds, funds, ETFs, portfolio risks, and yield scenarios. Use for
+  investment analysis in English or Portuguese (comparar investimentos, CDB,
+  Tesouro Direto, fundos, ETFs, rentabilidade, carteira, risco, taxas de
+  mercado). Do not use for general budgeting or actual bank-account activity.
 metadata:
   include_tools: market_data
 ---

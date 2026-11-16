@@ -80,11 +80,30 @@ function getSkillSlashQuery(value: string): string | null {
   return match?.[1] ?? null;
 }
 
+function getPendingStatus(elapsedSeconds: number, selectedSkillLabels: string[]) {
+  if (elapsedSeconds < 2) {
+    return selectedSkillLabels.length > 0
+      ? `Estou considerando ${selectedSkillLabels.join(" e ")} para orientar a resposta...`
+      : "Estou analisando sua pergunta...";
+  }
+  if (elapsedSeconds < 4) {
+    return "Estou organizando os pontos mais importantes...";
+  }
+  if (elapsedSeconds < 7) {
+    return "Estou preparando uma resposta clara e cuidadosa...";
+  }
+  if (elapsedSeconds < 10) {
+    return "Estou cuidando para responder sua pergunta com atenção...";
+  }
+  return "A resposta está levando um pouco mais de tempo. Assim que chegar, ela aparece aqui.";
+}
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [pending, setPending] = useState(false);
+  const [pendingElapsedSeconds, setPendingElapsedSeconds] = useState(0);
   const [error, setError] = useState("");
   const endOfMessages = useRef<HTMLDivElement>(null);
   const messageInput = useRef<HTMLTextAreaElement>(null);
@@ -106,10 +125,35 @@ export default function Home() {
   const selectedSkillOptions = skillOptions.filter((skill) =>
     selectedSkills.includes(skill.name),
   );
+  const latestMessage = messages[messages.length - 1];
+  const pendingSkillLabels =
+    latestMessage?.role === "user"
+      ? (latestMessage.selectedSkills ?? []).map((name) =>
+          skillLabel(name, skillOptions),
+        )
+      : [];
+  const pendingStatus = getPendingStatus(
+    pendingElapsedSeconds,
+    pendingSkillLabels,
+  );
 
   useEffect(() => {
     endOfMessages.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, pending]);
+
+  useEffect(() => {
+    if (!pending) {
+      setPendingElapsedSeconds(0);
+      return;
+    }
+
+    const startedAt = Date.now();
+    const intervalId = window.setInterval(() => {
+      setPendingElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [pending]);
 
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -256,9 +300,29 @@ export default function Home() {
                 </article>
               ))}
               {pending && (
-                <div className="flex items-center gap-3 text-sm text-slate-500" role="status">
-                  <span className="flex size-8 items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white">F</span>
-                  Preparando uma resposta...
+                <div
+                  className="flex items-center gap-3 text-sm text-slate-500"
+                  role="status"
+                  aria-live="polite"
+                  aria-label={pendingStatus}
+                >
+                  <span className="typing-avatar relative flex size-8 items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white">
+                    F
+                  </span>
+                  <span className="typing-bubble inline-flex items-center gap-2 rounded-2xl rounded-bl-md border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                    <span key={pendingStatus} className="typing-copy">
+                      {pendingStatus}
+                    </span>
+                    <span className="inline-flex items-center gap-1" aria-hidden="true">
+                      {[0, 1, 2].map((dot) => (
+                        <span
+                          className="typing-dot size-1.5 rounded-full bg-indigo-500"
+                          key={dot}
+                          style={{ animationDelay: `${dot * 0.18}s` }}
+                        />
+                      ))}
+                    </span>
+                  </span>
                 </div>
               )}
               {error && <p className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">{error}</p>}

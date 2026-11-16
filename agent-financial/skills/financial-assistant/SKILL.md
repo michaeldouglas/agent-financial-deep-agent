@@ -1,10 +1,12 @@
 ---
 name: financial-assistant
 description: >-
-  Explains personal finance concepts, creates budgets, calculates interest,
-  compares debt-repayment alternatives, and models savings goals. Use for
-  financial education, household budgeting, loans, credit cards, emergency
-  funds, and illustrative projections that do not require accessing accounts.
+  Explains personal finance concepts and calculations, including budgeting,
+  debt, savings, interest, credit, loans, and emergency funds. Use for general
+  financial education and illustrative projections in English or Portuguese
+  (educação financeira, orçamento, dívidas, juros, crédito, empréstimos,
+  reserva de emergência). Use investment-analysis for investment-product
+  comparisons and banking-operations for real account balances or transactions.
 ---
 
 # Financial Assistant

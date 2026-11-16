@@ -1,10 +1,11 @@
 ---
 name: banking-operations
 description: >-
-  Reads and summarizes a user's authorized bank-account balances,
-  transactions, spending categories, and cash flow through banking MCP tools.
-  Use when users ask about their real account activity, expenses, deposits,
-  account balances, or recent transactions. Read-only; no money movement.
+  Handles requests about a user's real bank balances, transactions, deposits,
+  spending, or cash flow using authorized read-only tools. Use for
+  account-specific questions in English or Portuguese (saldo bancário,
+  extrato, transações, gastos, depósitos). If no authorized banking tool is
+  connected, state that limitation; do not invent account data or move money.
 metadata:
   include_tools: banking_read
 ---
