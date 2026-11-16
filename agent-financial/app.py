@@ -9,7 +9,13 @@ from src.routes import router
 
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI()
+app = FastAPI(
+    title="API do Assistente Financeiro",
+    description=(
+        "API em português do Brasil. O chat também responde em inglês quando "
+        "a mensagem do usuário estiver nesse idioma."
+    ),
+)
 
 
 def _cors_allowed_origins() -> list[str]:

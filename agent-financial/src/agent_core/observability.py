@@ -4,7 +4,7 @@ import logging
 import time
 from typing import Any
 
-from langchain_core.messages import AIMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from .config import SKILLS_SOURCE
 
@@ -45,6 +45,7 @@ def log_skill_observability(result: dict[str, Any]) -> None:
     pending_reads: dict[str, str] = {}
     successful_reads: set[str] = set()
     failed_reads: set[str] = set()
+    pinned_activations: set[str] = set()
     for message in result.get("messages", []):
         if isinstance(message, AIMessage):
             for call in message.tool_calls:
@@ -55,6 +56,19 @@ def log_skill_observability(result: dict[str, Any]) -> None:
                 call_id = call.get("id")
                 if isinstance(path, str) and isinstance(call_id, str) and _skill_name_for_path(path):
                     pending_reads[call_id] = path
+        elif isinstance(message, HumanMessage):
+            additional_kwargs = message.additional_kwargs
+            skill = additional_kwargs.get("skill")
+            if additional_kwargs.get("lc_source") != "pinned_skill" or not isinstance(skill, dict):
+                continue
+            name = skill.get("name")
+            path = skill.get("path")
+            if (
+                isinstance(name, str)
+                and isinstance(path, str)
+                and path == f"{SKILLS_SOURCE}{name}/SKILL.md"
+            ):
+                pinned_activations.add(name)
         elif isinstance(message, ToolMessage) and message.tool_call_id in pending_reads:
             path = pending_reads[message.tool_call_id]
             # Only explicit success proves that read_file completed.
@@ -63,7 +77,7 @@ def log_skill_observability(result: dict[str, Any]) -> None:
             else:
                 failed_reads.add(path)
 
-    activated: set[str] = set()
+    activated = set(pinned_activations)
     for path in successful_reads:
         name = _skill_name_for_path(path)
         if name is None or path != f"{SKILLS_SOURCE}{name}/SKILL.md":
@@ -75,6 +89,10 @@ def log_skill_observability(result: dict[str, Any]) -> None:
         "Skills activated by read_file: %s; files=%s",
         ",".join(sorted(activated)) or "none",
         ",".join(sorted(successful_reads)) or "none",
+    )
+    logger.info(
+        "Skills activated by pinned_skills: %s",
+        ",".join(sorted(pinned_activations)) or "none",
     )
     if metadata_available:
         not_activated = set(discovered) - activated

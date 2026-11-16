@@ -6,11 +6,19 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import useSWR from "swr";
 
 type Message = {
   id: number;
   role: "user" | "assistant";
   content: string;
+  selectedSkills?: string[];
+};
+
+type SkillOption = {
+  name: string;
+  label: string;
+  description: string;
 };
 
 const suggestions = [
@@ -21,18 +29,83 @@ const suggestions = [
 
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
+function isSkillOption(value: unknown): value is SkillOption {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "name" in value &&
+    typeof value.name === "string" &&
+    "label" in value &&
+    typeof value.label === "string" &&
+    "description" in value &&
+    typeof value.description === "string"
+  );
+}
+
+async function fetchSkills(url: string): Promise<SkillOption[]> {
+  const response = await fetch(url, {
+    headers: { "Accept-Language": "pt-BR" },
+  });
+  if (!response.ok) {
+    throw new Error(`A API respondeu com status ${response.status}.`);
+  }
+
+  const payload: unknown = await response.json();
+  if (!Array.isArray(payload)) {
+    throw new Error("A API retornou um catálogo de Skills inválido.");
+  }
+
+  const skills = payload.filter(isSkillOption);
+  if (skills.length !== payload.length) {
+    throw new Error("A API retornou um catálogo de Skills inválido.");
+  }
+  return skills;
+}
+
+function skillLabel(name: string, skills: SkillOption[]): string {
+  return (
+    skills.find((skill) => skill.name === name)?.label ??
+    name.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase())
+  );
+}
+
 function normalizeMathDelimiters(markdown: string) {
   return markdown
     .replace(/\\\[([\s\S]*?)\\\]/g, (_match, formula: string) => `\n$$\n${formula.trim()}\n$$\n`)
     .replace(/\\\(([\s\S]*?)\\\)/g, (_match, formula: string) => `$${formula.trim()}$`);
 }
 
+function getSkillSlashQuery(value: string): string | null {
+  const match = value.match(/(?:^|\s)\/([a-z0-9-]*)$/i);
+  return match?.[1] ?? null;
+}
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const endOfMessages = useRef<HTMLDivElement>(null);
+  const messageInput = useRef<HTMLTextAreaElement>(null);
+  const {
+    data: skillOptions = [],
+    error: skillsError,
+    isLoading: skillsLoading,
+  } = useSWR<SkillOption[]>(`${apiUrl}/skills`, fetchSkills);
+  const skillSlashQuery = getSkillSlashQuery(input);
+  const matchingSkills =
+    skillSlashQuery === null
+      ? []
+      : skillOptions.filter((skill) =>
+          !selectedSkills.includes(skill.name) &&
+          `${skill.name} ${skillLabel(skill.name, skillOptions)} ${skill.description}`
+            .toLowerCase()
+            .includes(skillSlashQuery.toLowerCase()),
+        );
+  const selectedSkillOptions = skillOptions.filter((skill) =>
+    selectedSkills.includes(skill.name),
+  );
 
   useEffect(() => {
     endOfMessages.current?.scrollIntoView({ behavior: "smooth" });
@@ -43,17 +116,32 @@ export default function Home() {
     const content = input.trim();
     if (!content || pending) return;
 
-    const userMessage: Message = { id: Date.now(), role: "user", content };
+    const skillsForRequest = selectedSkills;
+    const userMessage: Message = {
+      id: Date.now(),
+      role: "user",
+      content,
+      selectedSkills: skillsForRequest,
+    };
     setMessages((current) => [...current, userMessage]);
     setInput("");
+    setSelectedSkills([]);
     setError("");
     setPending(true);
 
     try {
       const response = await fetch(`${apiUrl}/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: content }),
+        headers: {
+          "Content-Type": "application/json",
+          "Accept-Language": "pt-BR",
+        },
+        body: JSON.stringify({
+          message: content,
+          ...(skillsForRequest.length > 0
+            ? { selected_skills: skillsForRequest }
+            : {}),
+        }),
       });
 
       if (!response.ok) {
@@ -83,6 +171,16 @@ export default function Home() {
     } finally {
       setPending(false);
     }
+  }
+
+  function selectSkill(skill: SkillOption) {
+    setSelectedSkills((current) =>
+      current.includes(skill.name) ? current : [...current, skill.name],
+    );
+    setInput((current) =>
+      current.replace(/(?:^|\s)\/[a-z0-9-]*$/i, "").trimEnd(),
+    );
+    messageInput.current?.focus();
   }
 
   return (
@@ -136,7 +234,17 @@ export default function Home() {
                   )}
                   <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-7 sm:px-5 ${message.role === "user" ? "whitespace-pre-wrap rounded-br-md bg-indigo-600 text-white" : "rounded-bl-md border border-slate-200 bg-white text-slate-800 shadow-sm"}`}>
                     {message.role === "user" ? (
-                      <p>{message.content}</p>
+                      <>
+                        {message.selectedSkills &&
+                          message.selectedSkills.length > 0 && (
+                          <span className="mb-1 block text-xs font-medium text-indigo-100">
+                            Skills: {message.selectedSkills
+                              .map((name) => skillLabel(name, skillOptions))
+                              .join(", ")}
+                          </span>
+                        )}
+                        <p>{message.content}</p>
+                      </>
                     ) : (
                       <div className="chat-markdown">
                         <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
@@ -160,24 +268,101 @@ export default function Home() {
         </div>
 
         <div className="sticky bottom-0 bg-[#f7f8fa] pb-5 pt-2">
-          <form onSubmit={sendMessage} className="mx-auto max-w-3xl rounded-2xl border border-slate-300 bg-white p-2 shadow-sm focus-within:border-indigo-400 focus-within:ring-4 focus-within:ring-indigo-100">
+          <form onSubmit={sendMessage} className="relative mx-auto max-w-3xl rounded-2xl border border-slate-300 bg-white p-2 shadow-sm focus-within:border-indigo-400 focus-within:ring-4 focus-within:ring-indigo-100">
+            {skillSlashQuery !== null && (
+              <div
+                className="absolute inset-x-0 bottom-full z-20 mb-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+                aria-label="Skills disponíveis"
+                id="skill-options"
+                role="region"
+              >
+                <p className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Usar uma Skill
+                </p>
+                {skillsLoading ? (
+                  <p className="px-4 pb-3 text-sm text-slate-500">
+                    Carregando Skills...
+                  </p>
+                ) : skillsError ? (
+                  <p className="px-4 pb-3 text-sm text-rose-600" role="alert">
+                    Não foi possível carregar as Skills. Tente novamente mais tarde.
+                  </p>
+                ) : matchingSkills.length > 0 ? (
+                  matchingSkills.map((skill) => (
+                    <button
+                      key={skill.name}
+                      type="button"
+                      className="block w-full px-4 py-3 text-left transition hover:bg-indigo-50 focus:bg-indigo-50 focus:outline-none"
+                      onClick={() => selectSkill(skill)}
+                    >
+                      <span className="block text-sm font-medium text-slate-800">
+                        {skillLabel(skill.name, skillOptions)}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-slate-500">
+                        {skill.description}
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  <p className="px-4 pb-3 text-sm text-slate-500">
+                    Nenhuma Skill encontrada.
+                  </p>
+                )}
+              </div>
+            )}
+            {selectedSkillOptions.length > 0 && (
+              <div className="flex flex-wrap gap-2 px-3 pb-2 pt-1">
+                {selectedSkillOptions.map((skill) => (
+                  <span
+                    className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700"
+                    key={skill.name}
+                  >
+                    {skillLabel(skill.name, skillOptions)}
+                    <button
+                      type="button"
+                      className="rounded-full px-1 text-indigo-500 hover:bg-indigo-100 hover:text-indigo-800"
+                      aria-label={`Remover Skill ${skillLabel(skill.name, skillOptions)}`}
+                      onClick={() =>
+                        setSelectedSkills((current) =>
+                          current.filter((name) => name !== skill.name),
+                        )
+                      }
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
             <label className="sr-only" htmlFor="message">Escreva sua mensagem</label>
             <textarea
               id="message"
+              ref={messageInput}
               className="max-h-36 min-h-12 w-full resize-y bg-transparent px-3 py-2.5 text-sm leading-6 text-slate-900 outline-none placeholder:text-slate-400"
               placeholder="Escreva sua pergunta..."
               value={input}
+              aria-expanded={skillSlashQuery !== null}
+              aria-controls={skillSlashQuery !== null ? "skill-options" : undefined}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
+                  if (skillSlashQuery !== null && matchingSkills.length > 0) {
+                    selectSkill(matchingSkills[0]);
+                    return;
+                  }
                   event.currentTarget.form?.requestSubmit();
+                } else if (event.key === "Escape" && skillSlashQuery !== null) {
+                  event.preventDefault();
+                  setInput((current) =>
+                    current.replace(/(?:^|\s)\/[a-z0-9-]*$/i, "").trimEnd(),
+                  );
                 }
               }}
               rows={1}
             />
             <div className="flex items-center justify-between border-t border-slate-100 px-2 pt-2">
-              <p className="text-xs text-slate-400">Enter para enviar · Shift + Enter para nova linha</p>
+              <p className="text-xs text-slate-400">Digite / para adicionar Skills · Enter para enviar · Shift + Enter para nova linha</p>
               <button
                 type="submit"
                 disabled={!input.trim() || pending}
