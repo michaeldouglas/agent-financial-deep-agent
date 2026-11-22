@@ -68,7 +68,10 @@ async def health() -> dict[str, str]:
     "/skills",
     response_model=list[SkillSummary],
     summary="Listar Skills disponíveis",
-    description="Retorna as Skills descobertas pelo middleware nativo do agente.",
+    description=(
+        "Retorna Skills que podem ser escolhidas manualmente pelo frontend. "
+        "As demais continuam disponíveis para ativação automática pelo agente."
+    ),
 )
 def skills_endpoint(
     accept_language: str | None = Header(default=None, alias="Accept-Language"),
@@ -78,6 +81,7 @@ def skills_endpoint(
         return [
             _skill_summary(skill, english=english)
             for skill in discover_skills()
+            if skill.get("user_invocable", "true").strip().lower() != "false"
         ]
     except Exception as exc:
         logger.exception("Erro ao carregar o catálogo de Skills")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import tempfile
@@ -15,16 +16,21 @@ from deepagents.backends import CompositeBackend, FilesystemBackend, StateBacken
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.tools import BaseTool, StructuredTool
 from pydantic import Field
 
 from src.agent import _build_agent, answer
+from src.agent_core.config import MCP_FINANCIAL_URL, MCP_PROVIDER, SKILLS_ROOT
 from src.agent_core.observability import log_skill_observability
+from src.agent_core.skills import create_skill_tool_resolver
 
 
 EXPECTED_SKILLS = {
     "financial-assistant",
     "banking-operations",
     "investment-analysis",
+    "chart-visualization",
+    "document-renderer",
 }
 
 
@@ -107,10 +113,15 @@ def message_text(message: BaseMessage) -> str:
 
 
 class NativeSkillLoadingTests(unittest.IsolatedAsyncioTestCase):
-    async def invoke(self, prompt: str, *responses: AIMessage) -> tuple[dict[str, Any], ScriptedChatModel]:
+    async def invoke(
+        self,
+        prompt: str,
+        *responses: AIMessage,
+        mcp_tools: Sequence[BaseTool] = (),
+    ) -> tuple[dict[str, Any], ScriptedChatModel]:
         model = ScriptedChatModel(responses=list(responses))
         result: dict[str, Any] | None = None
-        async for state in _build_agent(model=model).astream(
+        async for state in _build_agent(model=model, mcp_tools=mcp_tools).astream(
             {"messages": [HumanMessage(content=prompt)]},
             stream_mode="values",
         ):
@@ -134,7 +145,12 @@ class NativeSkillLoadingTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(by_name["banking-operations"]["metadata"].get("include_tools"), "banking_read")
         self.assertEqual(by_name["investment-analysis"]["metadata"].get("include_tools"), "market_data")
+        self.assertEqual(by_name["document-renderer"]["metadata"].get("include_tools"), "python_scripts")
         return by_name
+
+    def test_brapi_is_the_default_mcp_provider(self) -> None:
+        self.assertEqual(MCP_PROVIDER, "brapi")
+        self.assertEqual(MCP_FINANCIAL_URL, "https://brapi.dev/api/mcp/mcp")
 
     def read_file_calls(self, result: dict[str, Any]) -> list[str]:
         return [
@@ -248,6 +264,24 @@ class NativeSkillLoadingTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("## Boundaries", system_prompt)
         self.assertFalse({"banking_read", "market_data"} & model.bound_tool_names)
 
+    async def test_document_renderer_skill_activates_without_a_document_tool(self) -> None:
+        result, model = await self.invoke(
+            "Prepare um relatório financeiro formatado com os valores que enviei.",
+            read_skill_call("document-renderer"),
+            AIMessage(content="O documento foi preparado com os dados fornecidos."),
+        )
+
+        self.assert_native_discovery(result)
+        self.assertEqual(self.read_file_calls(result), ["/skills/document-renderer/SKILL.md"])
+        self.assertFalse({"write_file", "execute", "mock_get_account_balance"} & model.bound_tool_names)
+        self.assertIn("run_skill_python_script", model.bound_tool_bindings[1])
+        self.assertNotIn("run_skill_python_script", model.bound_tool_bindings[0])
+
+    def test_document_json_schema_matches_the_frontend_runtime_copy(self) -> None:
+        skill_schema = SKILLS_ROOT / "document-renderer" / "references" / "document.schema.json"
+        frontend_schema = SKILLS_ROOT.parents[1] / "frontend-financial" / "src" / "app" / "document.schema.json"
+        self.assertEqual(json.loads(skill_schema.read_text(encoding="utf-8")), json.loads(frontend_schema.read_text(encoding="utf-8")))
+
     async def test_f_agent_cannot_read_project_files_or_env_paths(self) -> None:
         for forbidden_path in ("/agent.py", "/skills/../../.env"):
             with self.subTest(path=forbidden_path):
@@ -276,6 +310,167 @@ class NativeSkillLoadingTests(unittest.IsolatedAsyncioTestCase):
         # Deep Agents 0.7.38 adds a generic task tool by default; it is not a
         # filesystem operation and is not a specialized financial subagent.
         self.assertIn("task", names)
+
+    async def test_banking_mcp_tools_are_gated_by_skill_activation(self) -> None:
+        def mock_balance() -> str:
+            return "MOCK: saldo fictício de demonstração."
+
+        def mock_transactions() -> str:
+            return "MOCK: transações fictícias de demonstração."
+
+        def mock_quote(symbol: str) -> str:
+            return f"MOCK: cotação fictícia de {symbol}."
+
+        banking_tools = [
+            StructuredTool.from_function(
+                mock_balance,
+                name="mock_get_account_balance",
+                description="Return a fictional test balance.",
+            ),
+            StructuredTool.from_function(
+                mock_transactions,
+                name="mock_list_transactions",
+                description="Return fictional test transactions.",
+            ),
+        ]
+        market_tool = StructuredTool.from_function(
+            mock_quote,
+            name="mock_get_market_quote",
+            description="Return a fictional test market quote.",
+        )
+        model = ScriptedChatModel(
+            responses=[
+                read_skill_call("banking-operations"),
+                AIMessage(
+                    content="",
+                    tool_calls=[
+                        {
+                            "name": "mock_get_account_balance",
+                            "args": {},
+                            "id": "mock-balance-call",
+                        }
+                    ],
+                ),
+                AIMessage(content="O saldo mostrado é apenas fictício para teste."),
+            ]
+        )
+        result: dict[str, Any] | None = None
+        graph = _build_agent(
+            model=model,
+            mcp_tools=[*banking_tools, market_tool],
+        )
+        async for state in graph.astream(
+            {"messages": [HumanMessage(content="Qual é meu saldo?")]},
+            stream_mode="values",
+        ):
+            result = state
+
+        self.assertIsNotNone(result)
+        self.assertNotIn("mock_get_account_balance", model.bound_tool_bindings[0])
+        self.assertIn("mock_get_account_balance", model.bound_tool_bindings[1])
+        self.assertIn("mock_list_transactions", model.bound_tool_bindings[1])
+        self.assertNotIn("mock_get_market_quote", model.bound_tool_bindings[1])
+        tool_result = next(
+            message
+            for message in result["messages"]
+            if message.type == "tool" and message.tool_call_id == "mock-balance-call"
+        )
+        self.assertIn("MOCK", message_text(tool_result))
+        self.assertEqual(
+            result["messages"][-1].content,
+            "O saldo mostrado é apenas fictício para teste.",
+        )
+
+    def test_skill_tool_resolver_maps_declared_tool_groups(self) -> None:
+        tools = [
+            StructuredTool.from_function(
+                lambda: "mock balance",
+                name="mock_get_account_balance",
+                description="mock balance",
+            ),
+            StructuredTool.from_function(
+                lambda: "mock transactions",
+                name="mock_list_transactions",
+                description="mock transactions",
+            ),
+            StructuredTool.from_function(
+                lambda symbol: symbol,
+                name="mock_get_market_quote",
+                description="mock quote",
+            ),
+            StructuredTool.from_function(
+                lambda dataset: dataset,
+                name="mock_get_chart_dataset",
+                description="mock chart fixture",
+            ),
+            StructuredTool.from_function(
+                lambda symbols: symbols,
+                name="get_stock_quote",
+                description="BRAPI stock snapshot",
+            ),
+            StructuredTool.from_function(
+                lambda symbols: symbols,
+                name="get_stock_historical",
+                description="BRAPI historical data",
+            ),
+        ]
+        resolver = create_skill_tool_resolver(tools)
+
+        self.assertEqual(
+            {tool.name for tool in resolver("banking_read", None)},
+            {"mock_get_account_balance", "mock_list_transactions"},
+        )
+        self.assertEqual(
+            {tool.name for tool in resolver("market_data", None)},
+            {"mock_get_market_quote", "get_stock_quote", "get_stock_historical"},
+        )
+        self.assertEqual(resolver("unknown_group", None), [])
+        self.assertEqual(
+            {tool.name for tool in resolver("chart_data", None)},
+            {"mock_get_chart_dataset", "get_stock_quote", "get_stock_historical"},
+        )
+        self.assertEqual(
+            {tool.name for tool in resolver("python_scripts", None)},
+            {"run_skill_python_script"},
+        )
+
+    def test_python_skill_tool_rejects_shell_paths_and_arbitrary_source(self) -> None:
+        from src.agent_core.skill_python import run_skill_python_script
+
+        self.assertEqual(
+            set(run_skill_python_script.get_input_schema().model_fields),
+            {"skill_name", "script_name", "input_json"},
+        )
+        bad_path = run_skill_python_script.invoke({
+            "skill_name": "document-renderer",
+            "script_name": "..\\..\\agent.py",
+            "input_json": "print('not allowed')",
+        })
+        self.assertIn("Only a Python script filename is allowed", bad_path)
+
+    def test_python_skill_tool_executes_the_bundled_document_validator(self) -> None:
+        from src.agent_core.skill_python import run_skill_python_script
+
+        example_path = (
+            Path(__file__).resolve().parents[1]
+            / "skills"
+            / "document-renderer"
+            / "assets"
+            / "examples"
+            / "financial-report.json"
+        )
+        valid = run_skill_python_script.invoke({
+            "skill_name": "document-renderer",
+            "script_name": "validate_document.py",
+            "input_json": example_path.read_text(encoding="utf-8"),
+        })
+        invalid = run_skill_python_script.invoke({
+            "skill_name": "document-renderer",
+            "script_name": "validate_document.py",
+            "input_json": "{}",
+        })
+        self.assertEqual(valid, "Document payload is valid.")
+        self.assertIn("Document payload is invalid", invalid)
 
     def test_h_read_observer_requires_explicit_tool_success(self) -> None:
         result = {

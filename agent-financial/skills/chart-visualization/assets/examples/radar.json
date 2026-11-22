@@ -1,0 +1,15 @@
+{
+  "type": "radar",
+  "title": "Perfil comparativo de carteiras (exemplo)",
+  "mock": true,
+  "as_of": "exemplo estático",
+  "series": [
+    {"key": "carteira_a", "name": "Carteira A"},
+    {"key": "carteira_b", "name": "Carteira B"}
+  ],
+  "data": [
+    {"label": "Liquidez", "carteira_a": 8, "carteira_b": 5},
+    {"label": "Estabilidade", "carteira_a": 7, "carteira_b": 9},
+    {"label": "Crescimento", "carteira_a": 6, "carteira_b": 8}
+  ]
+}

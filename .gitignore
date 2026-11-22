@@ -1,5 +1,6 @@
 # Local harness: keep this workspace out of the repository upload
 /harness-financial/
+/agent-financial/evals/
 
 # Go build artifacts
 *.exe

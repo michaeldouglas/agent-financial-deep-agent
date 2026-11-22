@@ -8,9 +8,10 @@ dependencies = [
     "deepagents>=0.7.38",
     "fastapi>=0.163.1",
     "httpx>=0.28.1",
-    "langchain-mcp-adapters>=0.3.2",
+    "langchain[mcp]>=1.4.0",
     "langchain-openai>=1.8.0",
     "langgraph>=1.2.22",
+    "jsonschema>=4.26.0",
     "python-dotenv>=1.2.4",
     "uvicorn>=0.54.0",
 ]

@@ -6,14 +6,17 @@
     "dev": "next dev --hostname 0.0.0.0 --webpack",
     "build": "next build",
     "start": "next start --hostname 0.0.0.0",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "node --test tests/document-schema.test.cjs"
   },
   "dependencies": {
+    "ajv": "^8.20.0",
     "katex": "^0.16.22",
     "next": "^16.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
+    "recharts": "^3.11.0",
     "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",

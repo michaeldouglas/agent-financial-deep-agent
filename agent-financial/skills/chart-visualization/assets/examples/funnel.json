@@ -1,0 +1,12 @@
+{
+  "type": "funnel",
+  "title": "Etapas de uma simulação (exemplo)",
+  "mock": true,
+  "as_of": "exemplo estático",
+  "data": [
+    {"label": "Simulações iniciadas", "value": 1000},
+    {"label": "Propostas vistas", "value": 640},
+    {"label": "Propostas salvas", "value": 310},
+    {"label": "Contratos concluídos", "value": 120}
+  ]
+}

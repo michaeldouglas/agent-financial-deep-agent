@@ -1,0 +1,17 @@
+{
+  "type": "treemap",
+  "title": "Alocação hierárquica (exemplo)",
+  "unit": "%",
+  "mock": true,
+  "as_of": "exemplo estático",
+  "data": [
+    {"label": "Renda fixa", "value": 60, "children": [
+      {"label": "Tesouro", "value": 35},
+      {"label": "CDB", "value": 25}
+    ]},
+    {"label": "Renda variável", "value": 40, "children": [
+      {"label": "Ações", "value": 28},
+      {"label": "Fundos", "value": 12}
+    ]}
+  ]
+}
