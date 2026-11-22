@@ -1,0 +1,14 @@
+{
+  "type": "scatter",
+  "title": "Risco e retorno (exemplo)",
+  "unit": "%",
+  "mock": true,
+  "as_of": "exemplo estático",
+  "x_key": "risk",
+  "y_key": "return",
+  "data": [
+    {"label": "Fundo A", "risk": 4.2, "return": 8.1},
+    {"label": "Fundo B", "risk": 7.5, "return": 12.4},
+    {"label": "Fundo C", "risk": 5.1, "return": 9.3}
+  ]
+}

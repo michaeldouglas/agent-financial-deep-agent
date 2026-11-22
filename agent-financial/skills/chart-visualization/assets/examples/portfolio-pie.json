@@ -1,0 +1,14 @@
+{
+  "type": "pie",
+  "title": "Carteira de exemplo (%)",
+  "unit": "%",
+  "mock": true,
+  "as_of": "exemplo estático",
+  "colors": ["#4f46e5", "#0f766e", "#d97706", "#e11d48"],
+  "data": [
+    {"label": "Renda fixa", "value": 40},
+    {"label": "Ações", "value": 25},
+    {"label": "Fundos", "value": 20},
+    {"label": "Caixa", "value": 15}
+  ]
+}

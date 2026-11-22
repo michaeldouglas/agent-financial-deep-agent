@@ -1,0 +1,362 @@
+{
+  ".vscode/settings.json": {
+    "mtime": 1794770299.144996,
+    "seen": 1795316803.0933068,
+    "ast_hash": "04fbff918f62085d6f8e9fd68cc869a0",
+    "semantic_hash": ""
+  },
+  "agent-financial/app.py": {
+    "mtime": 1794804063.7812483,
+    "seen": 1795316803.0933232,
+    "ast_hash": "3a6f6dcf7ce50eb3b122a87bd154a1b2",
+    "semantic_hash": ""
+  },
+  "agent-financial/pyproject.toml": {
+    "mtime": 1795313509.1152217,
+    "seen": 1795316803.09333,
+    "ast_hash": "d506b2dcfe0e6fa8e7c2a985c8c7fefa",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/chart-visualization/assets/examples/composed.json": {
+    "mtime": 1795307672.9635677,
+    "seen": 1795316803.0933337,
+    "ast_hash": "d380249f37e775219e01f2fa156ba48e",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/chart-visualization/assets/examples/funnel.json": {
+    "mtime": 1795307672.972092,
+    "seen": 1795316803.0933375,
+    "ast_hash": "d7c903be7b5d969ba76f9af06a82746c",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/chart-visualization/assets/examples/hierarchy.json": {
+    "mtime": 1795307672.9690824,
+    "seen": 1795316803.0933404,
+    "ast_hash": "78884a8ba41eef65399f6fe533ea8e05",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/chart-visualization/assets/examples/monthly-line.json": {
+    "mtime": 1795306514.942124,
+    "seen": 1795316803.0933447,
+    "ast_hash": "d16c3c8393243d717aa1c38403a69358",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/chart-visualization/assets/examples/portfolio-pie.json": {
+    "mtime": 1795306514.942124,
+    "seen": 1795316803.0933468,
+    "ast_hash": "bb7c9fec8638e8a6847fc93ebd5e5eb5",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/chart-visualization/assets/examples/radar.json": {
+    "mtime": 1795307672.9665675,
+    "seen": 1795316803.0933495,
+    "ast_hash": "ff384920332237db5fce958fe74870c1",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/chart-visualization/assets/examples/radial-bar.json": {
+    "mtime": 1795307672.9675665,
+    "seen": 1795316803.0933514,
+    "ast_hash": "d6fdee262ee89f538deaa8e6aa7b8c98",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/chart-visualization/assets/examples/sankey.json": {
+    "mtime": 1795307672.976091,
+    "seen": 1795316803.0933537,
+    "ast_hash": "48df7b935802c159f788cde469ce210b",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/chart-visualization/assets/examples/scatter.json": {
+    "mtime": 1795307672.9655669,
+    "seen": 1795316803.0933568,
+    "ast_hash": "5cf091fa41120e77c9b79b78e3d6eb46",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/chart-visualization/assets/examples/sunburst.json": {
+    "mtime": 1795307680.3898888,
+    "seen": 1795316803.0933585,
+    "ast_hash": "75f014c27019266767a1e2752ff0cee6",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/chart-visualization/assets/theme.json": {
+    "mtime": 1795306514.9405136,
+    "seen": 1795316803.093361,
+    "ast_hash": "d186a36fc937f816e25d1dbf29703125",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/document-renderer/assets/examples/account-statement.json": {
+    "mtime": 1795312076.9536517,
+    "seen": 1795316803.093363,
+    "ast_hash": "41e55ae211c485872f35e457d1f850d6",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/document-renderer/assets/examples/financial-report.json": {
+    "mtime": 1795312076.9536517,
+    "seen": 1795316803.093365,
+    "ast_hash": "8fc5afa2d443766bc4fcc2daa53a6df4",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/document-renderer/assets/examples/investment-summary.json": {
+    "mtime": 1795312076.9649105,
+    "seen": 1795316803.093367,
+    "ast_hash": "7c370207aa3d0c197b47ce199080f168",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/document-renderer/assets/theme.json": {
+    "mtime": 1795312049.462175,
+    "seen": 1795316803.093369,
+    "ast_hash": "d4152377a5468f95d977fa29749702aa",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/document-renderer/references/document.schema.json": {
+    "mtime": 1795312778.4371572,
+    "seen": 1795316803.0933714,
+    "ast_hash": "242bdd84fcf352a9f3a399749f17aaa3",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/document-renderer/scripts/validate_document.py": {
+    "mtime": 1795313509.1152217,
+    "seen": 1795316803.0933733,
+    "ast_hash": "c10a34513e16d7dff29acd881094d48f",
+    "semantic_hash": ""
+  },
+  "agent-financial/src/agent.py": {
+    "mtime": 1794804095.348522,
+    "seen": 1795316803.0933752,
+    "ast_hash": "49245cfaf8bb02c6e73eb4f8a31d1f2e",
+    "semantic_hash": ""
+  },
+  "agent-financial/src/agent_core/__init__.py": {
+    "mtime": 1794796059.7116632,
+    "seen": 1795316803.0933776,
+    "ast_hash": "0509618456be9a97d1789f60ca2effb5",
+    "semantic_hash": ""
+  },
+  "agent-financial/src/agent_core/config.py": {
+    "mtime": 1795316136.3843102,
+    "seen": 1795316803.0933802,
+    "ast_hash": "2375df0c904565c53e3c533c6ecef475",
+    "semantic_hash": ""
+  },
+  "agent-financial/src/agent_core/mcp.py": {
+    "mtime": 1795316136.3885627,
+    "seen": 1795316803.0933824,
+    "ast_hash": "f7d45ac226fe898f696ef20f4d21258a",
+    "semantic_hash": ""
+  },
+  "agent-financial/src/agent_core/observability.py": {
+    "mtime": 1794799670.9221919,
+    "seen": 1795316803.0933843,
+    "ast_hash": "ed7e49f35a4bb10cd0c877d3723b2575",
+    "semantic_hash": ""
+  },
+  "agent-financial/src/agent_core/skill_python.py": {
+    "mtime": 1795314133.0131142,
+    "seen": 1795316803.0933862,
+    "ast_hash": "4d045bd18954b600daf056c0bc3445e7",
+    "semantic_hash": ""
+  },
+  "agent-financial/src/agent_core/skills.py": {
+    "mtime": 1795317251.1704526,
+    "seen": 1795317263.3063443,
+    "ast_hash": "fe93789c52d67248ae064e5c4c3ec141",
+    "semantic_hash": ""
+  },
+  "agent-financial/src/routes.py": {
+    "mtime": 1795317251.1730201,
+    "seen": 1795317263.306346,
+    "ast_hash": "3dfb8dcaae3bc309f234c4590d9c799a",
+    "semantic_hash": ""
+  },
+  "agent-financial/src/schemas.py": {
+    "mtime": 1795306168.385434,
+    "seen": 1795316803.0933938,
+    "ast_hash": "eed05a722be772096016315e179692f7",
+    "semantic_hash": ""
+  },
+  "agent-financial/tests/test_agent_reuse.py": {
+    "mtime": 1794797764.237196,
+    "seen": 1795316803.093396,
+    "ast_hash": "5fd933f4b662a8127b831e36c24c7438",
+    "semantic_hash": ""
+  },
+  "agent-financial/tests/test_cors.py": {
+    "mtime": 1794797381.5945263,
+    "seen": 1795316803.093398,
+    "ast_hash": "31846f909f0b8677359b108b62e2ef47",
+    "semantic_hash": ""
+  },
+  "agent-financial/tests/test_skill_loading.py": {
+    "mtime": 1795317238.209458,
+    "seen": 1795317263.3063521,
+    "ast_hash": "1020b0c94f8b0b7d6a35cf8fb41a160e",
+    "semantic_hash": ""
+  },
+  "docker-compose.yml": {
+    "mtime": 1795316376.1011977,
+    "seen": 1795316803.093402,
+    "ast_hash": "b1e3f95a8e5c6811f4d5481200149826",
+    "semantic_hash": ""
+  },
+  "frontend-financial/docker-entrypoint.sh": {
+    "mtime": 1794801110.9672847,
+    "seen": 1795316803.0934036,
+    "ast_hash": "9ef8b9b74a049c1abc4604c63339069f",
+    "semantic_hash": ""
+  },
+  "frontend-financial/eslint.config.mjs": {
+    "mtime": 1794780210.9298642,
+    "seen": 1795316803.0934055,
+    "ast_hash": "a28251ba62e169d583f4f218cc6ba5ef",
+    "semantic_hash": ""
+  },
+  "frontend-financial/next-env.d.ts": {
+    "mtime": 1795314910.3418965,
+    "seen": 1795316803.0934074,
+    "ast_hash": "aa94238a90e7d04b7a47ecc3145ba6a0",
+    "semantic_hash": ""
+  },
+  "frontend-financial/next.config.ts": {
+    "mtime": 1794780210.9269469,
+    "seen": 1795316803.0934093,
+    "ast_hash": "daad32b4de0b92afe04301ebf0a6cc76",
+    "semantic_hash": ""
+  },
+  "frontend-financial/package.json": {
+    "mtime": 1795313509.1520882,
+    "seen": 1795316803.0934117,
+    "ast_hash": "9aaeabc8a3c2bacb2d8c043a09f67eab",
+    "semantic_hash": ""
+  },
+  "frontend-financial/postcss.config.mjs": {
+    "mtime": 1794780210.9279504,
+    "seen": 1795316803.0934136,
+    "ast_hash": "0f8aa602547b154dc06be77b007c51d2",
+    "semantic_hash": ""
+  },
+  "frontend-financial/src/app/chart-renderer.tsx": {
+    "mtime": 1795312167.2909908,
+    "seen": 1795316803.0934155,
+    "ast_hash": "12e40ab93139e62ba977983bb11d8da4",
+    "semantic_hash": ""
+  },
+  "frontend-financial/src/app/document-renderer.tsx": {
+    "mtime": 1795312243.7852087,
+    "seen": 1795316803.0934174,
+    "ast_hash": "73119db8533a3d78c1ad49904a243c08",
+    "semantic_hash": ""
+  },
+  "frontend-financial/src/app/document.schema.json": {
+    "mtime": 1795312778.4371572,
+    "seen": 1795316803.0934198,
+    "ast_hash": "242bdd84fcf352a9f3a399749f17aaa3",
+    "semantic_hash": ""
+  },
+  "frontend-financial/src/app/download-file.ts": {
+    "mtime": 1795312167.2889698,
+    "seen": 1795316803.093422,
+    "ast_hash": "24956a36af6cedc96c4038c79b7d710a",
+    "semantic_hash": ""
+  },
+  "frontend-financial/src/app/layout.tsx": {
+    "mtime": 1794799160.082405,
+    "seen": 1795316803.093425,
+    "ast_hash": "32c2efe132c9d61a370a0ed065cd9808",
+    "semantic_hash": ""
+  },
+  "frontend-financial/src/app/page.tsx": {
+    "mtime": 1795318434.6481695,
+    "seen": 1795318472.6065774,
+    "ast_hash": "c320b841dc286e118515228a4d3eae37",
+    "semantic_hash": ""
+  },
+  "frontend-financial/tests/document-schema.test.cjs": {
+    "mtime": 1795312734.6432219,
+    "seen": 1795316803.093429,
+    "ast_hash": "f2f83336d52de12df64557a11fb6ab7f",
+    "semantic_hash": ""
+  },
+  "frontend-financial/tsconfig.json": {
+    "mtime": 1794780210.9249492,
+    "seen": 1795316803.093431,
+    "ast_hash": "4421e71dd3050dbe1858cbdeb0cdca73",
+    "semantic_hash": ""
+  },
+  "mcp-financial/go.mod": {
+    "mtime": 1794803360.5433252,
+    "seen": 1795316803.0934331,
+    "ast_hash": "d51624649c1c8fdeeb6f6fad21df4166",
+    "semantic_hash": ""
+  },
+  "mcp-financial/main.go": {
+    "mtime": 1795304399.0811949,
+    "seen": 1795316803.093435,
+    "ast_hash": "85ab9b0c763759fb41df1044d3318e96",
+    "semantic_hash": ""
+  },
+  "mcp-financial/main_test.go": {
+    "mtime": 1795304377.1794672,
+    "seen": 1795316803.0934372,
+    "ast_hash": "fa4bd0793cafdbc2030b086cde5a2cb4",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/banking-operations/SKILL.md": {
+    "mtime": 1795316249.6012542,
+    "seen": 1795316803.0934389,
+    "ast_hash": "010f7f0d05e95f720861aae32b529363",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/chart-visualization/SKILL.md": {
+    "mtime": 1795317217.1684694,
+    "seen": 1795317263.3063774,
+    "ast_hash": "dd8b13cf3d63261ba9c84122fe97b70d",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/chart-visualization/references/chart-selection.md": {
+    "mtime": 1795309513.966009,
+    "seen": 1795316803.0934436,
+    "ast_hash": "88d84df6366f1c4a10255b68b75fccbe",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/chart-visualization/references/chart-spec.md": {
+    "mtime": 1795309513.966009,
+    "seen": 1795316803.0934455,
+    "ast_hash": "fc3137bb6e923ce73fe144985cc6e99d",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/document-renderer/SKILL.md": {
+    "mtime": 1795317217.1722443,
+    "seen": 1795317263.3063815,
+    "ast_hash": "f5e166a1737eb0dd33f6492e224761a9",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/document-renderer/references/document-selection.md": {
+    "mtime": 1795313321.465945,
+    "seen": 1795316803.09345,
+    "ast_hash": "b4534fc89e3357f471f2954a486cb7b0",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/document-renderer/references/document-spec.md": {
+    "mtime": 1795312459.1674728,
+    "seen": 1795316803.0934517,
+    "ast_hash": "5444632f7d72ed718c495275117cd471",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/financial-assistant/SKILL.md": {
+    "mtime": 1794802430.6725442,
+    "seen": 1795316803.0934536,
+    "ast_hash": "1d56cd923a79b181b3e40af053ae7000",
+    "semantic_hash": ""
+  },
+  "agent-financial/skills/investment-analysis/SKILL.md": {
+    "mtime": 1795316477.0095055,
+    "seen": 1795316803.0934558,
+    "ast_hash": "704d553d9ded686eb86d9eee2b96ed54",
+    "semantic_hash": ""
+  },
+  "frontend-financial/package-lock.json": {
+    "mtime": 1795312128.4050424,
+    "seen": 1795316803.0934577,
+    "ast_hash": "f11a7a66993ce0ee2beb945959d1b8ed",
+    "semantic_hash": ""
+  }
+}

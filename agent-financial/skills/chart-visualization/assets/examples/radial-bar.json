@@ -1,0 +1,12 @@
+{
+  "type": "radialBar",
+  "title": "Metas de poupança (exemplo)",
+  "unit": "%",
+  "mock": true,
+  "as_of": "exemplo estático",
+  "data": [
+    {"label": "Reserva", "value": 72},
+    {"label": "Viagem", "value": 45},
+    {"label": "Curso", "value": 88}
+  ]
+}

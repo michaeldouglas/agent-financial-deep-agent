@@ -74,3 +74,19 @@ func TestLogToolCallDoesNotLogErrorDetails(t *testing.T) {
 		}
 	}
 }
+
+func TestChartFixturesCoverChartExperiments(t *testing.T) {
+	for _, dataset := range []string{"monthly_series", "market_movers", "portfolio_allocation", "expense_categories"} {
+		_, output, err := getMockChartDataset(context.Background(), nil, chartDatasetInput{Dataset: dataset})
+		if err != nil {
+			t.Fatalf("dataset %q returned an unexpected error: %v", dataset, err)
+		}
+		if !output.Mock || output.Notice == "" || len(output.Rows) < 3 {
+			t.Errorf("dataset %q should be labeled mock and contain chart rows: %+v", dataset, output)
+		}
+	}
+
+	if _, _, err := getMockChartDataset(context.Background(), nil, chartDatasetInput{Dataset: "unknown"}); err == nil {
+		t.Fatal("unknown dataset should return an error")
+	}
+}

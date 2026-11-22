@@ -1,0 +1,18 @@
+{
+  "type": "sankey",
+  "title": "Fluxo mensal fictício (exemplo)",
+  "unit": " R$",
+  "mock": true,
+  "as_of": "exemplo estático",
+  "nodes": [
+    {"name": "Renda"},
+    {"name": "Despesas fixas"},
+    {"name": "Despesas variáveis"},
+    {"name": "Poupança"}
+  ],
+  "links": [
+    {"source": 0, "target": 1, "value": 4200},
+    {"source": 0, "target": 2, "value": 1800},
+    {"source": 0, "target": 3, "value": 2000}
+  ]
+}

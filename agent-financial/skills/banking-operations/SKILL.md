@@ -4,15 +4,16 @@ description: >-
   Handles requests about bank balances, transactions, deposits, spending, and
   cash flow using read-only tools. Use for account-specific questions in
   English or Portuguese (saldo bancário, extrato, transações, gastos,
-  depósitos). Current demo tools return fictional data; disclose this and never
-  present it as a real bank connection or account activity.
+  depósitos). Use read-only tools only when the configured provider supplies
+  account data; never present market data or mock fixtures as a real bank
+  connection or account activity.
 metadata:
   include_tools: banking_read
 ---
 
 # Banking Operations — Read-Only
 
-Use the read-only `banking_read` tool group for account queries. The current MCP server returns fictional demo data, not real account activity. This skill does not enable transfers, payments, or account changes.
+Use the read-only `banking_read` tool group for account queries when available. BRAPI provides market information, not personal bank account data. Local demo results are fictional and must be labeled. This skill does not enable transfers, payments, or account changes.
 
 ## Prerequisites
 

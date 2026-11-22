@@ -1,0 +1,13 @@
+{
+  "type": "line",
+  "title": "Série mensal de exemplo",
+  "unit": "%",
+  "mock": true,
+  "as_of": "exemplo estático",
+  "colors": ["#4f46e5", "#0f766e", "#d97706", "#e11d48", "#0284c7", "#7c3aed"],
+  "data": [
+    {"label": "Jan", "value": 10.2},
+    {"label": "Fev", "value": 10.4},
+    {"label": "Mar", "value": 10.1}
+  ]
+}

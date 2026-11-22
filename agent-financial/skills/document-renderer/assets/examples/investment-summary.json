@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "document_type": "summary",
+  "title": "Resumo de investimentos de demonstração",
+  "metadata": {
+    "classification": "demonstration",
+    "currency": "BRL",
+    "notice": "Valores fictícios para demonstrar a estrutura. Não são cotações atuais nem recomendação."
+  },
+  "sections": [
+    {
+      "title": "Comparação ilustrativa",
+      "blocks": [
+        {"type": "paragraph", "text": "Os valores abaixo são entradas fictícias de exemplo, sem indicação de período de mercado."},
+        {"type": "table", "columns": [{"key": "asset", "label": "Ativo"}, {"key": "return", "label": "Variação", "align": "right", "format": "percent"}, {"key": "note", "label": "Observação"}], "rows": [{"asset": "Ativo A", "return": 1.8, "note": "Exemplo positivo"}, {"asset": "Ativo B", "return": -0.7, "note": "Exemplo negativo"}]},
+        {"type": "callout", "tone": "warning", "text": "Desempenho passado ou valores fictícios não garantem resultados futuros."}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "document_type": "statement",
+  "title": "Extrato demonstrativo",
+  "metadata": {
+    "classification": "demonstration",
+    "period": "01/01/2026 a 03/01/2026 (datas fictícias)",
+    "currency": "BRL",
+    "source": "Exemplo estático da Skill",
+    "notice": "Este extrato é fictício e não foi emitido por uma instituição financeira."
+  },
+  "sections": [
+    {
+      "title": "Lançamentos",
+      "blocks": [
+        {"type": "table", "columns": [{"key": "date", "label": "Data", "format": "date"}, {"key": "description", "label": "Descrição"}, {"key": "amount", "label": "Valor", "align": "right", "format": "currency"}], "rows": [{"date": "2026-01-01", "description": "Crédito demonstrativo", "amount": 3500}, {"date": "2026-01-02", "description": "Pagamento demonstrativo", "amount": -120}, {"date": "2026-01-03", "description": "Compra demonstrativa", "amount": -85.5}]},
+        {"type": "callout", "tone": "info", "text": "Os lançamentos acima servem somente para mostrar o formato do documento."}
+      ]
+    }
+  ]
+}

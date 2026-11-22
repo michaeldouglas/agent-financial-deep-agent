@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import tempfile
@@ -19,6 +20,7 @@ from langchain_core.tools import BaseTool, StructuredTool
 from pydantic import Field
 
 from src.agent import _build_agent, answer
+from src.agent_core.config import MCP_FINANCIAL_URL, MCP_PROVIDER, SKILLS_ROOT
 from src.agent_core.observability import log_skill_observability
 from src.agent_core.skills import create_skill_tool_resolver
 
@@ -27,6 +29,8 @@ EXPECTED_SKILLS = {
     "financial-assistant",
     "banking-operations",
     "investment-analysis",
+    "chart-visualization",
+    "document-renderer",
 }
 
 
@@ -141,7 +145,12 @@ class NativeSkillLoadingTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(by_name["banking-operations"]["metadata"].get("include_tools"), "banking_read")
         self.assertEqual(by_name["investment-analysis"]["metadata"].get("include_tools"), "market_data")
+        self.assertEqual(by_name["document-renderer"]["metadata"].get("include_tools"), "python_scripts")
         return by_name
+
+    def test_brapi_is_the_default_mcp_provider(self) -> None:
+        self.assertEqual(MCP_PROVIDER, "brapi")
+        self.assertEqual(MCP_FINANCIAL_URL, "https://brapi.dev/api/mcp/mcp")
 
     def read_file_calls(self, result: dict[str, Any]) -> list[str]:
         return [
@@ -254,6 +263,24 @@ class NativeSkillLoadingTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("## Calculation checks", system_prompt)
         self.assertNotIn("## Boundaries", system_prompt)
         self.assertFalse({"banking_read", "market_data"} & model.bound_tool_names)
+
+    async def test_document_renderer_skill_activates_without_a_document_tool(self) -> None:
+        result, model = await self.invoke(
+            "Prepare um relatório financeiro formatado com os valores que enviei.",
+            read_skill_call("document-renderer"),
+            AIMessage(content="O documento foi preparado com os dados fornecidos."),
+        )
+
+        self.assert_native_discovery(result)
+        self.assertEqual(self.read_file_calls(result), ["/skills/document-renderer/SKILL.md"])
+        self.assertFalse({"write_file", "execute", "mock_get_account_balance"} & model.bound_tool_names)
+        self.assertIn("run_skill_python_script", model.bound_tool_bindings[1])
+        self.assertNotIn("run_skill_python_script", model.bound_tool_bindings[0])
+
+    def test_document_json_schema_matches_the_frontend_runtime_copy(self) -> None:
+        skill_schema = SKILLS_ROOT / "document-renderer" / "references" / "document.schema.json"
+        frontend_schema = SKILLS_ROOT.parents[1] / "frontend-financial" / "src" / "app" / "document.schema.json"
+        self.assertEqual(json.loads(skill_schema.read_text(encoding="utf-8")), json.loads(frontend_schema.read_text(encoding="utf-8")))
 
     async def test_f_agent_cannot_read_project_files_or_env_paths(self) -> None:
         for forbidden_path in ("/agent.py", "/skills/../../.env"):
@@ -371,6 +398,21 @@ class NativeSkillLoadingTests(unittest.IsolatedAsyncioTestCase):
                 name="mock_get_market_quote",
                 description="mock quote",
             ),
+            StructuredTool.from_function(
+                lambda dataset: dataset,
+                name="mock_get_chart_dataset",
+                description="mock chart fixture",
+            ),
+            StructuredTool.from_function(
+                lambda symbols: symbols,
+                name="get_stock_quote",
+                description="BRAPI stock snapshot",
+            ),
+            StructuredTool.from_function(
+                lambda symbols: symbols,
+                name="get_stock_historical",
+                description="BRAPI historical data",
+            ),
         ]
         resolver = create_skill_tool_resolver(tools)
 
@@ -380,9 +422,55 @@ class NativeSkillLoadingTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(
             {tool.name for tool in resolver("market_data", None)},
-            {"mock_get_market_quote"},
+            {"mock_get_market_quote", "get_stock_quote", "get_stock_historical"},
         )
         self.assertEqual(resolver("unknown_group", None), [])
+        self.assertEqual(
+            {tool.name for tool in resolver("chart_data", None)},
+            {"mock_get_chart_dataset", "get_stock_quote", "get_stock_historical"},
+        )
+        self.assertEqual(
+            {tool.name for tool in resolver("python_scripts", None)},
+            {"run_skill_python_script"},
+        )
+
+    def test_python_skill_tool_rejects_shell_paths_and_arbitrary_source(self) -> None:
+        from src.agent_core.skill_python import run_skill_python_script
+
+        self.assertEqual(
+            set(run_skill_python_script.get_input_schema().model_fields),
+            {"skill_name", "script_name", "input_json"},
+        )
+        bad_path = run_skill_python_script.invoke({
+            "skill_name": "document-renderer",
+            "script_name": "..\\..\\agent.py",
+            "input_json": "print('not allowed')",
+        })
+        self.assertIn("Only a Python script filename is allowed", bad_path)
+
+    def test_python_skill_tool_executes_the_bundled_document_validator(self) -> None:
+        from src.agent_core.skill_python import run_skill_python_script
+
+        example_path = (
+            Path(__file__).resolve().parents[1]
+            / "skills"
+            / "document-renderer"
+            / "assets"
+            / "examples"
+            / "financial-report.json"
+        )
+        valid = run_skill_python_script.invoke({
+            "skill_name": "document-renderer",
+            "script_name": "validate_document.py",
+            "input_json": example_path.read_text(encoding="utf-8"),
+        })
+        invalid = run_skill_python_script.invoke({
+            "skill_name": "document-renderer",
+            "script_name": "validate_document.py",
+            "input_json": "{}",
+        })
+        self.assertEqual(valid, "Document payload is valid.")
+        self.assertIn("Document payload is invalid", invalid)
 
     def test_h_read_observer_requires_explicit_tool_success(self) -> None:
         result = {

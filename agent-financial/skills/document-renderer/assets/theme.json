@@ -1,0 +1,16 @@
+{
+  "brand": "Assistente Financeiro",
+  "locale": "pt-BR",
+  "currency": "BRL",
+  "pageSize": "A4",
+  "colors": {
+    "ink": "#172033",
+    "muted": "#64748b",
+    "accent": "#3346a8",
+    "border": "#dbe2ea",
+    "surface": "#ffffff",
+    "info": "#eff6ff",
+    "warning": "#fffbeb",
+    "success": "#ecfdf5"
+  }
+}

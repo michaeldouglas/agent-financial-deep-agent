@@ -1,0 +1,14 @@
+{
+  "name": "financial-indigo",
+  "colors": [
+    "#4f46e5",
+    "#0f766e",
+    "#d97706",
+    "#e11d48",
+    "#0284c7",
+    "#7c3aed"
+  ],
+  "grid": "#e2e8f0",
+  "label": "#64748b",
+  "background": "#ffffff"
+}

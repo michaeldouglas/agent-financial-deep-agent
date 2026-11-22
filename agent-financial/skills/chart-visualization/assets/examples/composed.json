@@ -1,0 +1,16 @@
+{
+  "type": "composed",
+  "title": "Receita e margem por trimestre (exemplo)",
+  "unit": " R$ mil",
+  "mock": true,
+  "as_of": "exemplo estático",
+  "series": [
+    {"key": "revenue", "name": "Receita", "type": "bar"},
+    {"key": "margin", "name": "Margem", "type": "line"}
+  ],
+  "data": [
+    {"label": "T1", "revenue": 120, "margin": 32},
+    {"label": "T2", "revenue": 145, "margin": 38},
+    {"label": "T3", "revenue": 138, "margin": 35}
+  ]
+}

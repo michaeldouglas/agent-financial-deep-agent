@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "document_type": "report",
+  "title": "Resumo financeiro de demonstração",
+  "subtitle": "Receitas e despesas do período de exemplo",
+  "metadata": {
+    "classification": "demonstration",
+    "period": "Período fictício de demonstração",
+    "currency": "BRL",
+    "notice": "Todos os valores são fictícios e não representam uma conta real."
+  },
+  "sections": [
+    {
+      "title": "Visão geral",
+      "blocks": [
+        {"type": "paragraph", "text": "Resumo demonstrativo baseado somente nos valores incluídos neste exemplo."},
+        {"type": "indicator", "label": "Saldo demonstrativo", "value": 1200, "unit": "BRL", "trend": "neutral", "detail": "Receitas menos despesas do exemplo."},
+        {"type": "table", "caption": "Movimentação por categoria", "columns": [{"key": "category", "label": "Categoria"}, {"key": "value", "label": "Valor", "align": "right", "format": "currency"}], "rows": [{"category": "Receitas", "value": 2000}, {"category": "Moradia", "value": 550}, {"category": "Alimentação", "value": 250}]}
+      ]
+    }
+  ],
+  "footer": "Exemplo de layout; não é uma demonstração financeira real."
+}

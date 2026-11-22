@@ -65,6 +65,24 @@ type marketQuoteOutput struct {
 	Notice   string  `json:"notice"`
 }
 
+type chartDatasetInput struct {
+	Dataset string `json:"dataset" jsonschema:"one of monthly_series, market_movers, portfolio_allocation, expense_categories"`
+}
+
+type chartDatum struct {
+	Label string  `json:"label"`
+	Value float64 `json:"value"`
+}
+
+type chartDatasetOutput struct {
+	Dataset string       `json:"dataset"`
+	Title   string       `json:"title"`
+	AsOf    string       `json:"as_of"`
+	Rows    []chartDatum `json:"rows"`
+	Mock    bool         `json:"mock"`
+	Notice  string       `json:"notice"`
+}
+
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 	server := newMCPServer(logger)
@@ -148,7 +166,43 @@ func newMCPServer(logger *slog.Logger) *mcp.Server {
 		Annotations: readOnlyLocal,
 	}, logToolCall(logger, "mock_get_market_quote", getMockMarketQuote))
 
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "mock_get_chart_dataset",
+		Title:       "Mock: carregar conjunto de dados para testar gráficos",
+		Description: "Returns fixed fictional chart fixtures for testing bar, line, area, and pie charts. These are not real financial data.",
+		Annotations: readOnlyLocal,
+	}, logToolCall(logger, "mock_get_chart_dataset", getMockChartDataset))
+
 	return server
+}
+
+func getMockChartDataset(_ context.Context, _ *mcp.CallToolRequest, input chartDatasetInput) (*mcp.CallToolResult, chartDatasetOutput, error) {
+	datasets := map[string]chartDatasetOutput{
+		"monthly_series": {
+			Dataset: "monthly_series", Title: "Evolução mensal de demonstração", AsOf: "fixture de teste",
+			Rows: []chartDatum{{"Jan", 10.2}, {"Fev", 10.4}, {"Mar", 10.1}, {"Abr", 10.8}, {"Mai", 11.0}, {"Jun", 10.7}},
+		},
+		"market_movers": {
+			Dataset: "market_movers", Title: "Variação de ativos de demonstração (%)", AsOf: "fixture de teste",
+			Rows: []chartDatum{{"PETR4", 1.8}, {"VALE3", -0.7}, {"ITUB4", 0.9}, {"BBAS3", -1.2}, {"BOVA11", 0.4}},
+		},
+		"portfolio_allocation": {
+			Dataset: "portfolio_allocation", Title: "Carteira fictícia (%)", AsOf: "fixture de teste",
+			Rows: []chartDatum{{"Renda fixa", 40}, {"Ações", 25}, {"Fundos", 20}, {"Caixa", 15}},
+		},
+		"expense_categories": {
+			Dataset: "expense_categories", Title: "Despesas fictícias (R$)", AsOf: "fixture de teste",
+			Rows: []chartDatum{{"Moradia", 1800}, {"Alimentação", 950}, {"Transporte", 420}, {"Lazer", 330}, {"Outros", 250}},
+		},
+	}
+
+	output, ok := datasets[strings.TrimSpace(input.Dataset)]
+	if !ok {
+		return nil, chartDatasetOutput{}, errors.New("unknown chart dataset")
+	}
+	output.Mock = true
+	output.Notice = mockNotice
+	return nil, output, nil
 }
 
 func logToolCall[Input any, Output any](
