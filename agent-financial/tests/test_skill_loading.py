@@ -31,6 +31,10 @@ EXPECTED_SKILLS = {
     "investment-analysis",
     "chart-visualization",
     "document-renderer",
+    "rich-text",
+    "math-rendering",
+    "code-presentation",
+    "diagram-rendering",
 }
 
 
@@ -146,11 +150,41 @@ class NativeSkillLoadingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(by_name["banking-operations"]["metadata"].get("include_tools"), "banking_read")
         self.assertEqual(by_name["investment-analysis"]["metadata"].get("include_tools"), "market_data")
         self.assertEqual(by_name["document-renderer"]["metadata"].get("include_tools"), "python_scripts")
+        self.assertEqual(by_name["rich-text"]["metadata"].get("include_tools"), "python_scripts")
+        self.assertEqual(by_name["math-rendering"]["metadata"].get("include_tools"), "python_scripts")
+        for name in ("rich-text", "math-rendering", "code-presentation", "diagram-rendering"):
+            self.assertEqual(by_name[name]["metadata"].get("user_invocable"), "false")
         return by_name
 
     def test_brapi_is_the_default_mcp_provider(self) -> None:
         self.assertEqual(MCP_PROVIDER, "brapi")
         self.assertEqual(MCP_FINANCIAL_URL, "https://brapi.dev/api/mcp/mcp")
+
+    def test_presentation_python_scripts_are_bundled_and_deterministic(self) -> None:
+        resolver = create_skill_tool_resolver([])
+        script_tool = resolver("python_scripts", None)  # type: ignore[arg-type]
+        self.assertEqual([item.name for item in script_tool], ["run_skill_python_script"])
+        from src.agent_core.skill_python import _run
+
+        markdown = _run("rich-text", "validate_markdown.py", json.dumps({"markdown": "| x |\n| - |\n| 1 |"}))
+        self.assertIn('"valid": true', markdown)
+        malformed = _run("rich-text", "validate_markdown.py", json.dumps({"markdown": "```py\nprint(1)"}))
+        self.assertIn('"valid": false', malformed)
+        math = _run("math-rendering", "validate_math_delimiters.py", json.dumps({"text": "$$\nx^2\n$$"}))
+        self.assertIn('"valid": true', math)
+        invalid = _run("math-rendering", "validate_math_delimiters.py", json.dumps({"text": "$x"}))
+        self.assertIn('"valid": false', invalid)
+
+    async def test_math_rendering_skill_exposes_only_its_declared_script_tool(self) -> None:
+        result, model = await self.invoke(
+            "Demonstre a fórmula de juros compostos.",
+            read_skill_call("math-rendering"),
+            AIMessage(content="A expressão é:\n\n$$\nFV=PV(1+i)^n\n$$"),
+        )
+        self.assertEqual(self.read_file_calls(result), ["/skills/math-rendering/SKILL.md"])
+        self.assertNotIn("run_skill_python_script", model.bound_tool_bindings[0])
+        self.assertIn("run_skill_python_script", model.bound_tool_bindings[1])
+        self.assertNotIn("execute", model.bound_tool_names)
 
     def read_file_calls(self, result: dict[str, Any]) -> list[str]:
         return [

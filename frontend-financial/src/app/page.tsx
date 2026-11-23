@@ -2,11 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import ReactMarkdown from "react-markdown";
-import rehypeKatex from "rehype-katex";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
+import Link from "next/link";
 import useSWR from "swr";
+import RichContentRenderer from "../components/rich-content/rich-content-renderer";
 import ChartRenderer from "./chart-renderer";
 import type { ChartSpec } from "./chart-renderer";
 import DocumentRenderer, { isDocumentSpec } from "./document-renderer";
@@ -240,46 +238,37 @@ function skillDescription(skill: SkillOption): string {
   return skill.description;
 }
 
-function normalizeMathDelimiters(markdown: string) {
-  return markdown
-    .replace(/\\\[([\s\S]*?)\\\]/g, (_match, formula: string) => `\n$$\n${formula.trim()}\n$$\n`)
-    .replace(/\\\(([\s\S]*?)\\\)/g, (_match, formula: string) => `$${formula.trim()}$`);
-}
-
 function getSkillSlashQuery(value: string): string | null {
   const match = value.match(/(?:^|\s)\/([a-z0-9-]*)$/i);
   return match?.[1] ?? null;
 }
 
 function getPendingStatus(elapsedSeconds: number, selectedSkillLabels: string[]) {
-  if (elapsedSeconds < 2) {
-    return selectedSkillLabels.length > 0
-      ? `Estou considerando ${selectedSkillLabels.join(" e ")} para orientar a resposta...`
-      : "Estou analisando sua pergunta...";
+  if (selectedSkillLabels.length > 0 && elapsedSeconds < 4) {
+    return `Pergunta enviada com ${selectedSkillLabels.join(" e ")}.`;
   }
-  if (elapsedSeconds < 4) {
-    return "Estou organizando os pontos mais importantes...";
-  }
-  if (elapsedSeconds < 7) {
-    return "Estou preparando uma resposta clara e cuidadosa...";
-  }
-  if (elapsedSeconds < 10) {
-    return "Estou cuidando para responder sua pergunta com atenção...";
-  }
-  return "A resposta está levando um pouco mais de tempo. Assim que chegar, ela aparece aqui.";
+  if (elapsedSeconds < 10) return "Aguardando a resposta…";
+  return "A resposta está demorando mais que o normal. Você pode continuar aguardando.";
 }
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [activeSkillIndex, setActiveSkillIndex] = useState(0);
   const [pending, setPending] = useState(false);
   const [pendingElapsedSeconds, setPendingElapsedSeconds] = useState(0);
   const [error, setError] = useState("");
+  const [failedRequest, setFailedRequest] = useState<{
+    content: string;
+    selectedSkills: string[];
+  } | null>(null);
   const [activeSuggestionPage, setActiveSuggestionPage] = useState(0);
   const endOfMessages = useRef<HTMLDivElement>(null);
+  const messageSequence = useRef(0);
   const messageInput = useRef<HTMLTextAreaElement>(null);
   const suggestionCarousel = useRef<HTMLDivElement>(null);
+  const appRoot = useRef<HTMLElement>(null);
   const {
     data: skillOptions = [],
     error: skillsError,
@@ -311,14 +300,88 @@ export default function Home() {
   );
 
   useEffect(() => {
-    endOfMessages.current?.scrollIntoView({ behavior: "smooth" });
+    endOfMessages.current?.scrollIntoView({ behavior: "auto" });
   }, [messages, pending]);
 
   useEffect(() => {
-    if (!pending) {
-      setPendingElapsedSeconds(0);
+    const prefersReducedMotion =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (messages.length > 0 || prefersReducedMotion) {
       return;
     }
+
+    let cancelled = false;
+    let animationContext: { revert: () => void } | undefined;
+
+    void Promise.all([import("gsap"), import("gsap/ScrollTrigger")]).then(
+      ([gsapModule, scrollTriggerModule]) => {
+        if (cancelled) return;
+
+        const gsap = gsapModule.gsap;
+        const { ScrollTrigger } = scrollTriggerModule;
+        gsap.registerPlugin(ScrollTrigger);
+        animationContext = gsap.context(() => {
+          const entrance = gsap.timeline({ defaults: { ease: "power3.out" } });
+          entrance
+            .fromTo(
+              "[data-brand-mark]",
+              { scale: 0.86, rotate: -8 },
+              { scale: 1, rotate: 0, duration: 0.48 },
+            )
+            .fromTo(
+              "[data-intro-item]",
+              { y: 18 },
+              { y: 0, duration: 0.58, stagger: 0.12 },
+              "-=0.2",
+            )
+            .fromTo(
+              "[data-signal-path]",
+              { strokeDashoffset: 900 },
+              { strokeDashoffset: 0, duration: 1.05, ease: "power2.inOut" },
+              "-=0.5",
+            )
+            .fromTo(
+              "[data-signal-node]",
+              { scale: 0.88, transformOrigin: "50% 50%" },
+              { scale: 1, duration: 0.42, stagger: 0.08, ease: "power3.out" },
+              "-=0.65",
+            );
+
+          gsap.fromTo(
+            "[data-suggestion-item]",
+            { y: 16 },
+            {
+              y: 0,
+              duration: 0.5,
+              stagger: 0.1,
+              ease: "power3.out",
+              scrollTrigger: {
+                trigger: "[data-suggestions]",
+                start: "top 84%",
+                once: true,
+              },
+            },
+          );
+          gsap.fromTo(
+            "[data-composer]",
+            { y: 10 },
+            { y: 0, duration: 0.42, delay: 0.18, ease: "power3.out" },
+          );
+        }, appRoot);
+      },
+    ).catch(() => {
+      // Motion is an enhancement; the static interface remains complete.
+    });
+
+    return () => {
+      cancelled = true;
+      animationContext?.revert();
+    };
+  }, [messages.length]);
+
+  useEffect(() => {
+    if (!pending) return;
 
     const startedAt = Date.now();
     const intervalId = window.setInterval(() => {
@@ -327,6 +390,78 @@ export default function Home() {
 
     return () => window.clearInterval(intervalId);
   }, [pending]);
+
+  async function requestAssistant(content: string, skillsForRequest: string[]) {
+    const response = await fetch(`${apiUrl}/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept-Language": "pt-BR",
+      },
+      body: JSON.stringify({
+        message: content,
+        ...(skillsForRequest.length > 0
+          ? { selected_skills: skillsForRequest }
+          : {}),
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`A API respondeu com status ${response.status}.`);
+    }
+
+    const data: unknown = await response.json();
+    if (
+      typeof data !== "object" ||
+      data === null ||
+      !("resposta" in data) ||
+      typeof data.resposta !== "string"
+    ) {
+      throw new Error("A resposta da API não contém o campo 'resposta'.");
+    }
+
+    const chartResponse = parseChartResponse(data.resposta);
+    const documentResponse = parseDocumentResponse(chartResponse.content);
+    setMessages((current) => [
+      ...current,
+      {
+        id: ++messageSequence.current,
+        role: "assistant",
+        content: documentResponse.content,
+        ...(chartResponse.chart ? { chart: chartResponse.chart } : {}),
+        ...(documentResponse.document ? { document: documentResponse.document } : {}),
+      },
+    ]);
+  }
+
+  async function runRequest(content: string, skillsForRequest: string[], retry = false) {
+    setPendingElapsedSeconds(0);
+    setError("");
+    setPending(true);
+    if (!retry) {
+      setFailedRequest(null);
+      setMessages((current) => [
+        ...current,
+        {
+          id: ++messageSequence.current,
+          role: "user",
+          content,
+          selectedSkills: skillsForRequest,
+        },
+      ]);
+    }
+
+    try {
+      await requestAssistant(content, skillsForRequest);
+      setFailedRequest(null);
+    } catch {
+      const failed = { content, selectedSkills: skillsForRequest };
+      setFailedRequest(failed);
+      setError("Não consegui concluir a resposta. Sua pergunta foi preservada.");
+    } finally {
+      setPending(false);
+    }
+  }
 
   async function sendMessage(
     contentToSend = input,
@@ -337,69 +472,14 @@ export default function Home() {
     if (!content || pending) return;
 
     const skillsForRequest = selectedSkills;
-    const userMessage: Message = {
-      id: Date.now(),
-      role: "user",
-      content,
-      selectedSkills: skillsForRequest,
-    };
-    setMessages((current) => [...current, userMessage]);
     setInput("");
     setSelectedSkills([]);
-    setError("");
-    setPending(true);
+    await runRequest(content, skillsForRequest);
+  }
 
-    try {
-      const response = await fetch(`${apiUrl}/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept-Language": "pt-BR",
-        },
-        body: JSON.stringify({
-          message: content,
-          ...(skillsForRequest.length > 0
-            ? { selected_skills: skillsForRequest }
-            : {}),
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`A API respondeu com status ${response.status}.`);
-      }
-
-      const data: unknown = await response.json();
-      if (
-        typeof data !== "object" ||
-        data === null ||
-        !("resposta" in data) ||
-        typeof data.resposta !== "string"
-      ) {
-        throw new Error("A resposta da API não contém o campo 'resposta'.");
-      }
-
-      const chartResponse = parseChartResponse(data.resposta);
-      const documentResponse = parseDocumentResponse(chartResponse.content);
-
-      setMessages((current) => [
-        ...current,
-        {
-          id: Date.now() + 1,
-          role: "assistant",
-          content: documentResponse.content,
-          ...(chartResponse.chart ? { chart: chartResponse.chart } : {}),
-          ...(documentResponse.document ? { document: documentResponse.document } : {}),
-        },
-      ]);
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? `${cause.message} Verifique se a API está ativa em ${apiUrl}.`
-          : `Não foi possível conectar à API em ${apiUrl}.`,
-      );
-    } finally {
-      setPending(false);
-    }
+  async function retryFailedRequest() {
+    if (!failedRequest || pending) return;
+    await runRequest(failedRequest.content, failedRequest.selectedSkills, true);
   }
 
   function selectSkill(skill: SkillOption) {
@@ -409,6 +489,7 @@ export default function Home() {
     setInput((current) =>
       current.replace(/(?:^|\s)\/[a-z0-9-]*$/i, "").trimEnd(),
     );
+    setActiveSkillIndex(0);
     messageInput.current?.focus();
   }
 
@@ -421,63 +502,102 @@ export default function Home() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col bg-[#f7f8fa]">
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-8">
-        <a href="/" className="flex items-center gap-3" aria-label="Assistente Financeiro, início">
-          <span className="flex size-10 items-center justify-center rounded-xl bg-indigo-600 text-lg font-bold text-white">F</span>
-          <span>
-            <span className="block text-sm font-semibold text-slate-900">Assistente Financeiro</span>
-            <span className="block text-xs text-slate-500">Seu espaço para aprender</span>
+    <main ref={appRoot} className="app-shell flex min-h-dvh flex-col text-foreground">
+      <a className="skip-link" href="#conversation-content">Pular para o conteúdo principal</a>
+      <header className="app-header flex h-[4.5rem] shrink-0 items-center justify-between px-4 sm:px-8">
+        <Link href="/" className="flex items-center gap-3" aria-label="Assistente Financeiro, início">
+          <span data-brand-mark className="brand-mark flex size-11 items-center justify-center" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" className="size-6">
+              <path d="M5 18V11M12 18V6M19 18V9" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+              <path d="M3.5 20h17" stroke="#5B7651" strokeWidth="1.7" strokeLinecap="round" />
+            </svg>
           </span>
-        </a>
-        <span className="hidden rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 sm:inline-flex">
-          Chat financeiro
+          <span>
+            <span className="brand-name block text-sm font-semibold" translate="no">Financial Deep Agent</span>
+            <span className="brand-subtitle block text-xs">Assistente financeiro</span>
+          </span>
+        </Link>
+        <span className="status-chip hidden items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium sm:inline-flex">
+          <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
+          Orientação informativa
         </span>
       </header>
 
-      <section className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 sm:px-8">
+      <section id="conversation-content" className="workspace mx-auto flex w-full flex-1 flex-col px-4 sm:px-8">
         <div className="flex flex-1 flex-col py-4 sm:py-6">
           {messages.length === 0 ? (
-            <div className="m-auto w-full max-w-3xl py-2">
-              <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
-                <svg viewBox="0 0 24 24" fill="none" className="size-6" aria-hidden="true">
-                  <path d="M4 18.5V5.8c0-.99.81-1.8 1.8-1.8h12.4c.99 0 1.8.81 1.8 1.8v9.4c0 .99-.81 1.8-1.8 1.8H9l-5 3v-1.5Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
-                  <path d="M8 9h8M8 13h5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-                </svg>
+            <div className="welcome-screen m-auto">
+              <div className="welcome-hero">
+                <div className="hero-copy-block">
+                  <h1 data-intro-item className="hero-title">
+                    Entenda o que<br />
+                    <em>move seus números.</em>
+                  </h1>
+                  <p data-intro-item className="hero-copy mt-5">
+                    Explore conceitos, compare cenários e visualize dados financeiros.
+                  </p>
+                </div>
+                <div className="hero-art" aria-hidden="true">
+                  <svg className="signal-art" viewBox="0 0 520 180" fill="none">
+                    <path className="signal-track" data-signal-path d="M260 90C230 52 110 52 90 90C70 128 230 128 260 90C290 52 410 52 430 90C450 128 290 128 260 90" />
+                    <path className="signal-flow" d="M260 90C230 52 110 52 90 90C70 128 230 128 260 90C290 52 410 52 430 90C450 128 290 128 260 90" />
+                    <g data-signal-node transform="translate(90 90)">
+                      <circle className="signal-node-shell" r="36" />
+                      <circle className="signal-node-core" r="26" />
+                      <path d="M-9-5h18v13H1l-7 5V8h-3z" stroke="#17353A" strokeWidth="1.8" strokeLinejoin="round" />
+                      <path d="M-5-1h10M-5 3h7" stroke="#17353A" strokeWidth="1.5" strokeLinecap="round" />
+                      <text className="signal-label" y="51" textAnchor="middle">PERGUNTA</text>
+                      <text className="signal-caption" y="67" textAnchor="middle">o ponto de partida</text>
+                    </g>
+                    <g data-signal-node transform="translate(260 90)">
+                      <circle className="signal-node-shell" r="42" />
+                      <circle className="signal-node-core-aqua" r="31" />
+                      <path d="M-13 10h26M-10 6V-2M-2 6V-11M6 6V-7M13 6V-15" stroke="#10272C" strokeWidth="2" strokeLinecap="round" />
+                      <text className="signal-label" y="55" textAnchor="middle">ANÁLISE</text>
+                      <text className="signal-caption" y="71" textAnchor="middle">ideias em relação</text>
+                    </g>
+                    <g data-signal-node transform="translate(430 90)">
+                      <circle className="signal-node-shell" r="36" />
+                      <circle className="signal-node-core-violet" r="26" />
+                      <path d="m-9 0 6 6 12-13" stroke="#1C1932" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <text className="signal-label" y="51" textAnchor="middle">CLAREZA</text>
+                      <text className="signal-caption" y="67" textAnchor="middle">próximo passo</text>
+                    </g>
+                  </svg>
+                </div>
               </div>
-              <p className="mb-1 text-sm font-medium text-indigo-700">Olá, vamos conversar?</p>
-              <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">Como posso ajudar você hoje?</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Tire dúvidas, explore exemplos financeiros ou peça gráficos e documentos.</p>
-              <div className="mt-5">
+              <div data-suggestions className="suggestions-area">
                 <div className="mb-3 flex items-center justify-between gap-3">
-                  <h2 className="text-sm font-semibold text-slate-800">Sugestões para começar</h2>
+                  <h2 className="suggestions-title">Comece por aqui</h2>
                   <div className="flex items-center gap-2">
-                    <span className="min-w-10 text-center text-xs tabular-nums text-slate-500" aria-live="polite">
+                    <span className="min-w-10 text-center text-xs tabular-nums text-muted-foreground" aria-live="polite">
                       {activeSuggestionPage + 1} / {suggestionPages.length}
                     </span>
                     <button
                       type="button"
-                      className="flex size-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-40"
+                      className="carousel-control flex size-11 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
                       aria-label="Sugestões anteriores"
                       disabled={activeSuggestionPage === 0}
                       onClick={() => goToSuggestionPage(activeSuggestionPage - 1)}
                     >
-                      <span aria-hidden="true">←</span>
+                      <svg viewBox="0 0 24 24" fill="none" className="size-4" aria-hidden="true"><path d="m14.5 5-7 7 7 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
                     </button>
                     <button
                       type="button"
-                      className="flex size-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-40"
+                      className="carousel-control flex size-11 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
                       aria-label="Próximas sugestões"
                       disabled={activeSuggestionPage === suggestionPages.length - 1}
                       onClick={() => goToSuggestionPage(activeSuggestionPage + 1)}
                     >
-                      <span aria-hidden="true">→</span>
+                      <svg viewBox="0 0 24 24" fill="none" className="size-4" aria-hidden="true"><path d="m9.5 5 7 7-7 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
                     </button>
                   </div>
                 </div>
                 <div
                   ref={suggestionCarousel}
                   className="suggestion-carousel flex snap-x snap-mandatory overflow-x-auto scroll-smooth"
+                  role="region"
+                  aria-roledescription="carrossel"
                   aria-label="Sugestões de conversa"
                   onScroll={(event) => {
                     const width = event.currentTarget.clientWidth;
@@ -487,60 +607,66 @@ export default function Home() {
                   }}
                 >
                   {suggestionPages.map((page, pageIndex) => (
-                    <div className="grid min-w-full flex-none snap-start grid-cols-1 gap-3 sm:grid-cols-3" key={pageIndex}>
+                    <div className="grid min-w-full flex-none snap-start grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3" key={pageIndex} role="group" aria-roledescription="página" aria-label={`Página ${pageIndex + 1} de ${suggestionPages.length}`}>
                       {page.map((suggestion) => (
                         <button
-                          className="group flex min-h-32 flex-col items-start rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-wait disabled:opacity-60 sm:min-h-36"
+                          data-suggestion-item
+                          className="suggestion-card group flex min-h-[4.5rem] items-center gap-3 px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 sm:flex-col sm:items-start sm:gap-0 sm:p-4"
                           key={suggestion.title}
                           disabled={pending}
                           onClick={() => void sendMessage(suggestion.prompt)}
                           type="button"
                         >
-                          <span className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">
+                          <span className="suggestion-level hidden shrink-0 sm:block">
                             {suggestion.level}
                           </span>
-                          <span className="mt-1.5 text-sm font-semibold leading-5 text-slate-800 group-hover:text-indigo-800">
-                            {suggestion.title}
+                          <span className="min-w-0 flex-1 sm:mt-1.5 sm:flex-none">
+                            <span className="suggestion-title block text-sm leading-5">
+                              {suggestion.title}
+                            </span>
+                            <span className="suggestion-summary mt-0.5 block text-xs leading-5 sm:mt-1">
+                              {suggestion.summary}
+                            </span>
                           </span>
-                          <span className="mt-1 text-xs leading-5 text-slate-500">
-                            {suggestion.summary}
-                          </span>
-                          <span className="mt-auto flex w-full items-center justify-between pt-3 text-xs font-medium text-indigo-600">
-                            Começar conversa <span aria-hidden="true">↗</span>
+                          <span className="suggestion-action flex size-10 shrink-0 items-center justify-center rounded-full transition-colors sm:mt-auto sm:size-auto sm:w-full sm:justify-between sm:rounded-none sm:bg-transparent sm:pt-3 sm:text-xs sm:font-medium">
+                            <span className="hidden sm:inline">Usar exemplo</span>
+                            <svg viewBox="0 0 24 24" fill="none" className="size-4" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
                           </span>
                         </button>
                       ))}
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 flex justify-center gap-1.5" aria-label="Páginas de sugestões">
+                <div className="mt-1 flex justify-center gap-1" role="group" aria-label="Páginas de sugestões">
                   {suggestionPages.map((_, pageIndex) => (
                     <button
                       key={pageIndex}
                       type="button"
-                      className={`h-1.5 rounded-full transition-all ${activeSuggestionPage === pageIndex ? "w-6 bg-indigo-600" : "w-1.5 bg-slate-300 hover:bg-slate-400"}`}
+                      className="carousel-dot flex size-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       aria-label={`Ir para página ${pageIndex + 1} de sugestões`}
                       aria-current={activeSuggestionPage === pageIndex ? "page" : undefined}
                       onClick={() => goToSuggestionPage(pageIndex)}
-                    />
+                    ><span aria-hidden="true" className={`block h-1.5 rounded-full transition-[width,background-color] ${activeSuggestionPage === pageIndex ? "w-6 bg-primary" : "w-1.5 bg-mist-border hover:bg-muted-foreground"}`} /></button>
                   ))}
                 </div>
               </div>
             </div>
           ) : (
-            <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 pb-8" aria-live="polite">
+            <div className="conversation mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 pb-8" role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversa com o assistente">
               {messages.map((message) => (
-                <article className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`} key={message.id}>
+                <article className={`message-row flex ${message.role === "user" ? "justify-end" : "justify-start"}`} key={message.id}>
                   {message.role === "assistant" && (
-                    <span className="mr-3 mt-1 flex size-8 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white" aria-label="Assistente">F</span>
+                    <span className="assistant-avatar mr-3 mt-1 flex size-9 shrink-0 items-center justify-center rounded-xl" aria-label="Assistente">
+                      <svg viewBox="0 0 24 24" fill="none" className="size-5" aria-hidden="true"><path d="M5 18V11M12 18V6M19 18V9" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /><path d="M3.5 20h17" stroke="#C7F36A" strokeWidth="1.7" strokeLinecap="round" /></svg>
+                    </span>
                   )}
-                  <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-7 sm:px-5 ${message.role === "user" ? "whitespace-pre-wrap rounded-br-md bg-indigo-600 text-white" : "rounded-bl-md border border-slate-200 bg-white text-slate-800 shadow-sm"}`}>
+                  <div className={`max-w-[92%] break-words rounded-2xl px-4 py-3 text-sm leading-7 sm:max-w-[88%] sm:px-5 ${message.role === "user" ? "user-bubble whitespace-pre-wrap rounded-br-md" : "assistant-bubble rounded-bl-md border"}`}>
                     {message.role === "user" ? (
                       <>
                         {message.selectedSkills &&
                           message.selectedSkills.length > 0 && (
-                          <span className="mb-1 block text-xs font-medium text-indigo-100">
-                            Skills: {message.selectedSkills
+                          <span className="user-skill-label mb-1 block text-xs font-medium">
+                            Com apoio de: {message.selectedSkills
                               .map((name) => skillLabel(name, skillOptions))
                               .join(", ")}
                           </span>
@@ -549,11 +675,7 @@ export default function Home() {
                       </>
                     ) : (
                       <>
-                        <div className="chat-markdown">
-                          <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-                            {normalizeMathDelimiters(message.content)}
-                          </ReactMarkdown>
-                        </div>
+                        <RichContentRenderer content={message.content} />
                         {message.document && <DocumentRenderer document={message.document} />}
                         {message.chart && <ChartRenderer chart={message.chart} />}
                       </>
@@ -563,22 +685,22 @@ export default function Home() {
               ))}
               {pending && (
                 <div
-                  className="flex items-center gap-3 text-sm text-slate-500"
+                  className="pending-status flex items-center gap-3 text-sm"
                   role="status"
                   aria-live="polite"
                   aria-label={pendingStatus}
                 >
-                  <span className="typing-avatar relative flex size-8 items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white">
-                    F
+                  <span className="assistant-avatar flex size-9 items-center justify-center rounded-xl" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" className="size-5"><path d="M5 18V11M12 18V6M19 18V9" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /><path d="M3.5 20h17" stroke="#C7F36A" strokeWidth="1.7" strokeLinecap="round" /></svg>
                   </span>
-                  <span className="typing-bubble inline-flex items-center gap-2 rounded-2xl rounded-bl-md border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <span key={pendingStatus} className="typing-copy">
+                  <span className="pending-bubble inline-flex items-center gap-3 rounded-2xl rounded-bl-md border px-4 py-3">
+                    <span key={pendingStatus}>
                       {pendingStatus}
                     </span>
                     <span className="inline-flex items-center gap-1" aria-hidden="true">
                       {[0, 1, 2].map((dot) => (
                         <span
-                          className="typing-dot size-1.5 rounded-full bg-indigo-500"
+                          className="typing-dot size-1.5 rounded-full bg-river"
                           key={dot}
                           style={{ animationDelay: `${dot * 0.18}s` }}
                         />
@@ -587,50 +709,68 @@ export default function Home() {
                   </span>
                 </div>
               )}
-              {error && <p className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">{error}</p>}
+              {error && (
+                <div className="error-panel flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm" role="alert">
+                  <p>{error}</p>
+                  {failedRequest && (
+                    <button
+                      type="button"
+                      className="error-retry min-h-11 rounded-lg px-3 font-semibold underline underline-offset-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-critical focus-visible:ring-offset-2"
+                      onClick={() => void retryFailedRequest()}
+                      disabled={pending}
+                    >
+                      Tentar novamente
+                    </button>
+                  )}
+                </div>
+              )}
               <div ref={endOfMessages} />
             </div>
           )}
         </div>
 
-        <div className="sticky bottom-0 bg-[#f7f8fa] pb-5 pt-2">
-          <form onSubmit={(event) => void sendMessage(input, event)} className="relative mx-auto max-w-3xl rounded-2xl border border-slate-300 bg-white p-2 shadow-sm focus-within:border-indigo-400 focus-within:ring-4 focus-within:ring-indigo-100">
+        <div data-composer className="composer-dock sticky bottom-0 z-10 -mx-4 mt-auto px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 sm:-mx-8 sm:px-8">
+          <form onSubmit={(event) => void sendMessage(input, event)} className="composer-form relative mx-auto max-w-3xl rounded-2xl border p-2 transition-[border-color,box-shadow]">
             {skillSlashQuery !== null && (
               <div
-                className="absolute inset-x-0 bottom-full z-20 mb-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+                className="skill-menu absolute inset-x-0 bottom-full z-20 mb-2 overflow-hidden rounded-xl border"
                 aria-label="Skills disponíveis"
                 id="skill-options"
-                role="region"
+                role={matchingSkills.length > 0 && !skillsLoading && !skillsError ? "listbox" : "region"}
               >
-                <p className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <p className="px-4 py-2 text-xs font-medium text-muted-foreground">
                   Usar uma Skill
                 </p>
                 {skillsLoading ? (
-                  <p className="px-4 pb-3 text-sm text-slate-500">
+                  <p className="px-4 pb-3 text-sm text-muted-foreground">
                     Carregando Skills...
                   </p>
                 ) : skillsError ? (
-                  <p className="px-4 pb-3 text-sm text-rose-600" role="alert">
+                  <p className="px-4 pb-3 text-sm text-critical" role="alert">
                     Não foi possível carregar as Skills. Tente novamente mais tarde.
                   </p>
                 ) : matchingSkills.length > 0 ? (
-                  matchingSkills.map((skill) => (
+                  matchingSkills.map((skill, index) => (
                     <button
                       key={skill.name}
                       type="button"
-                      className="block w-full px-4 py-3 text-left transition hover:bg-indigo-50 focus:bg-indigo-50 focus:outline-none"
+                      id={`skill-option-${skill.name}`}
+                      role="option"
+                      aria-selected={index === activeSkillIndex}
+                      className="skill-option block min-h-14 w-full px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                       onClick={() => selectSkill(skill)}
+                      onMouseEnter={() => setActiveSkillIndex(index)}
                     >
-                      <span className="block text-sm font-medium text-slate-800">
+                      <span className="block text-sm font-semibold text-foreground">
                         {skillLabel(skill.name, skillOptions)}
                       </span>
-                      <span className="mt-0.5 block text-xs text-slate-500">
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
                         {skillDescription(skill)}
                       </span>
                     </button>
                   ))
                 ) : (
-                  <p className="px-4 pb-3 text-sm text-slate-500">
+                  <p className="skill-empty px-4 pb-3 text-sm">
                     Nenhuma Skill encontrada.
                   </p>
                 )}
@@ -640,13 +780,13 @@ export default function Home() {
               <div className="flex flex-wrap gap-2 px-3 pb-2 pt-1">
                 {selectedSkillOptions.map((skill) => (
                   <span
-                    className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground"
                     key={skill.name}
                   >
                     {skillLabel(skill.name, skillOptions)}
                     <button
                       type="button"
-                      className="rounded-full px-1 text-indigo-500 hover:bg-indigo-100 hover:text-indigo-800"
+                      className="skill-chip-remove flex size-8 items-center justify-center rounded-full text-secondary-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       aria-label={`Remover Skill ${skillLabel(skill.name, skillOptions)}`}
                       onClick={() =>
                         setSelectedSkills((current) =>
@@ -663,18 +803,35 @@ export default function Home() {
             <label className="sr-only" htmlFor="message">Escreva sua mensagem</label>
             <textarea
               id="message"
+              name="message"
+              autoComplete="off"
               ref={messageInput}
-              className="max-h-36 min-h-12 w-full resize-y bg-transparent px-3 py-2.5 text-sm leading-6 text-slate-900 outline-none placeholder:text-slate-400"
-              placeholder="Escreva sua pergunta..."
+              className="composer-input max-h-36 min-h-12 w-full resize-y bg-transparent px-3 py-2.5 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground"
+              placeholder="Ex.: explique juros compostos…"
               value={input}
-              aria-expanded={skillSlashQuery !== null}
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={matchingSkills.length > 0 && !skillsLoading && !skillsError}
               aria-controls={skillSlashQuery !== null ? "skill-options" : undefined}
-              onChange={(event) => setInput(event.target.value)}
+              aria-activedescendant={matchingSkills.length > 0 ? `skill-option-${matchingSkills[Math.min(activeSkillIndex, matchingSkills.length - 1)].name}` : undefined}
+              aria-describedby="composer-hint"
+              onChange={(event) => {
+                setInput(event.target.value);
+                setActiveSkillIndex(0);
+              }}
               onKeyDown={(event) => {
+                if ((event.key === "ArrowDown" || event.key === "ArrowUp") && matchingSkills.length > 0) {
+                  event.preventDefault();
+                  const direction = event.key === "ArrowDown" ? 1 : -1;
+                  setActiveSkillIndex((current) =>
+                    (current + direction + matchingSkills.length) % matchingSkills.length,
+                  );
+                  return;
+                }
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
                   if (skillSlashQuery !== null && matchingSkills.length > 0) {
-                    selectSkill(matchingSkills[0]);
+                    selectSkill(matchingSkills[Math.min(activeSkillIndex, matchingSkills.length - 1)]);
                     return;
                   }
                   event.currentTarget.form?.requestSubmit();
@@ -687,13 +844,14 @@ export default function Home() {
               }}
               rows={1}
             />
-            <div className="flex items-center justify-between border-t border-slate-100 px-2 pt-2">
-              <p className="text-xs text-slate-400">Digite / para adicionar Skills · Enter para enviar · Shift + Enter para nova linha</p>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-2 pt-2">
+              <p id="composer-hint" className="composer-hint min-w-0 flex-1 text-xs leading-5">Use / para escolher uma Skill. Enter envia; Shift + Enter cria uma linha.</p>
               <button
                 type="submit"
                 disabled={!input.trim() || pending}
-                className="flex size-9 items-center justify-center rounded-xl bg-indigo-600 text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                className="composer-send flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-primary transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-disabled disabled:text-muted-foreground"
                 aria-label="Enviar mensagem"
+                title="Enviar mensagem"
               >
                 <svg viewBox="0 0 24 24" fill="none" className="size-5" aria-hidden="true">
                   <path d="M12 19V5m0 0L6 11m6-6 6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -701,7 +859,7 @@ export default function Home() {
               </button>
             </div>
           </form>
-          <p className="mx-auto mt-3 max-w-3xl text-center text-xs text-slate-400">As respostas são informativas e não substituem orientação financeira personalizada.</p>
+          <p className="composer-disclaimer mx-auto mt-3 max-w-3xl text-center text-xs leading-5">As respostas são informativas e não substituem orientação financeira personalizada.</p>
         </div>
       </section>
     </main>

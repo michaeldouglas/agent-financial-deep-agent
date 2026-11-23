@@ -1,8 +1,10 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const path = require("node:path");
-const Ajv = require("ajv");
-const schema = require("../src/app/document.schema.json");
+import test from "node:test";
+import assert from "node:assert/strict";
+import Ajv from "ajv";
+import schema from "../src/app/document.schema.json" with { type: "json" };
+import financialReport from "../../agent-financial/skills/document-renderer/assets/examples/financial-report.json" with { type: "json" };
+import accountStatement from "../../agent-financial/skills/document-renderer/assets/examples/account-statement.json" with { type: "json" };
+import investmentSummary from "../../agent-financial/skills/document-renderer/assets/examples/investment-summary.json" with { type: "json" };
 
 const validate = new Ajv({ allErrors: true }).compile(schema);
 
@@ -75,9 +77,12 @@ test("accepts a user-supplied HTML-like string as plain text data", () => {
 });
 
 test("all skill examples satisfy the frontend schema", () => {
-  const examples = path.resolve(__dirname, "../../agent-financial/skills/document-renderer/assets/examples");
-  for (const filename of ["financial-report.json", "account-statement.json", "investment-summary.json"]) {
-    const document = require(path.join(examples, filename));
+  const examples = [
+    ["financial-report.json", financialReport],
+    ["account-statement.json", accountStatement],
+    ["investment-summary.json", investmentSummary],
+  ];
+  for (const [filename, document] of examples) {
     assert.equal(validate(document), true, `${filename}: ${JSON.stringify(validate.errors)}`);
   }
 });
