@@ -74,7 +74,7 @@ export type ChartSpec = {
   colors?: string[];
 };
 
-const defaultColors = ["#4f46e5", "#0f766e", "#d97706", "#e11d48", "#0284c7", "#7c3aed"];
+const defaultColors = ["#c7f36a", "#79ded0", "#b8a8ff", "#ff9a8d", "#76b8f0", "#f4c76b"];
 
 function flattenHierarchy(nodes: ChartRow[]): Record<string, unknown>[] {
   const rows: Record<string, unknown>[] = [];
@@ -128,6 +128,25 @@ function toCsv(rows: Record<string, unknown>[]): string {
   return `\uFEFF${lines.join("\r\n")}`;
 }
 
+function formatChartCell(value: unknown): string {
+  if (value === undefined || value === null) return "—";
+  if (typeof value === "number") {
+    return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 }).format(value);
+  }
+  if (typeof value === "string") return value;
+  return JSON.stringify(value) ?? String(value);
+}
+
+function formatChartValue(value: number | undefined, unit: string): string {
+  if (value === undefined) return "—";
+  if (/^(r\$|brl)$/i.test(unit.trim())) {
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+  }
+  const formatted = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(value);
+  if (unit.trim() === "%") return `${formatted}%`;
+  return unit ? `${formatted} ${unit}` : formatted;
+}
+
 function downloadChartFile(chart: ChartSpec, format: "csv" | "json") {
   const content = format === "json"
     ? JSON.stringify(chart, null, 2)
@@ -144,11 +163,11 @@ function ChartTooltip({ active, payload, label, unit }: {
 }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg">
-      {label && <p className="mb-1 font-medium text-slate-600">{label}</p>}
+    <div className="chart-tooltip rounded-lg border px-3 py-2 text-xs shadow-lg">
+      {label && <p className="chart-tooltip-label mb-1 font-medium">{label}</p>}
       {payload.map((item, index) => (
-        <p key={`${item.name ?? "value"}-${index}`} className="font-semibold text-slate-900" style={{ color: item.color }}>
-          {item.name ? `${item.name}: ` : ""}{item.value}{unit}
+        <p key={`${item.name ?? "value"}-${index}`} className="chart-tooltip-value font-semibold" style={{ color: item.color }}>
+          {item.name ? `${item.name}: ` : ""}{formatChartValue(item.value, unit)}
         </p>
       ))}
     </div>
@@ -169,30 +188,32 @@ function CustomTreemapContent(props: { x?: number; y?: number; width?: number; h
 export default function ChartRenderer({ chart }: { chart: ChartSpec }) {
   const colors = chart.colors?.length ? chart.colors : defaultColors;
   const data = chart.data ?? [];
+  const tableRows = chartCsvRows(chart);
+  const tableColumns = [...new Set(tableRows.flatMap((row) => Object.keys(row)))];
   const primaryColor = colors[0];
   const common = { data, margin: { top: 12, right: 12, left: 0, bottom: 4 } };
   const axes = <>
-    <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
-    <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
-    <YAxis tickLine={false} axisLine={false} width={44} tick={{ fill: "#64748b", fontSize: 12 }} />
+    <CartesianGrid stroke="#315056" strokeDasharray="3 3" vertical={false} />
+    <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#b4c7c2", fontSize: 12 }} />
+    <YAxis tickLine={false} axisLine={false} width={62} tickFormatter={(value) => formatChartValue(Number(value), chart.unit ?? "")} tick={{ fill: "#b4c7c2", fontSize: 12 }} />
     <Tooltip content={<ChartTooltip unit={chart.unit ?? ""} />} />
   </>;
   const series = chart.series?.length ? chart.series : [{ key: "value", name: "Valor" }];
 
   return (
-    <section className="mt-4 w-full min-w-0 rounded-xl border border-slate-200 bg-white p-4" aria-label={`Gráfico: ${chart.title}`}>
+    <section className="chart-surface mt-4 w-full min-w-0 rounded-xl border p-4" aria-label={`Gráfico: ${chart.title}`}>
       <div className="mb-1 flex flex-wrap items-start justify-between gap-3">
-        <h3 className="text-sm font-semibold text-slate-900">{chart.title}</h3>
+        <h3 className="chart-heading text-sm font-semibold">{chart.title}</h3>
         <div className="flex shrink-0 gap-2" aria-label="Exportar dados do gráfico">
           <button
-            className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            className="chart-export rounded-md border px-2.5 py-1 text-xs font-medium transition focus:outline-none focus:ring-2"
             onClick={() => downloadChartFile(chart, "csv")}
             type="button"
           >
             Baixar CSV
           </button>
           <button
-            className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            className="chart-export rounded-md border px-2.5 py-1 text-xs font-medium transition focus:outline-none focus:ring-2"
             onClick={() => downloadChartFile(chart, "json")}
             type="button"
           >
@@ -200,9 +221,10 @@ export default function ChartRenderer({ chart }: { chart: ChartSpec }) {
           </button>
         </div>
       </div>
-      <p className="mb-3 text-xs text-amber-700">
+      <p className="chart-source mb-3 text-xs">
         {chart.mock ? "Dados fictícios para demonstração" : "Visualização de dados"}
         {chart.as_of ? ` · ${chart.as_of}` : ""}
+        {chart.unit ? ` · Unidade: ${chart.unit}` : ""}
       </p>
       <div className="h-72 w-full" role="img" aria-label={`${chart.type} chart`}>
         <ResponsiveContainer width="100%" height="100%">
@@ -232,17 +254,17 @@ export default function ChartRenderer({ chart }: { chart: ChartSpec }) {
           ) : chart.type === "scatter" ? (
             <ScatterChart margin={{ top: 16, right: 16, bottom: 16, left: 8 }}>
               <CartesianGrid stroke="#e2e8f0" />
-              <XAxis type="number" dataKey={chart.x_key ?? "x"} name={chart.x_key ?? "X"} tick={{ fill: "#64748b", fontSize: 12 }} />
-              <YAxis type="number" dataKey={chart.y_key ?? "y"} name={chart.y_key ?? "Y"} tick={{ fill: "#64748b", fontSize: 12 }} />
+              <XAxis type="number" dataKey={chart.x_key ?? "x"} name={chart.x_key ?? "X"} tick={{ fill: "#b4c7c2", fontSize: 12 }} />
+              <YAxis type="number" dataKey={chart.y_key ?? "y"} name={chart.y_key ?? "Y"} tick={{ fill: "#b4c7c2", fontSize: 12 }} />
               <ZAxis type="number" dataKey={chart.z_key ?? "z"} range={[64, 400]} />
               <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<ChartTooltip unit={chart.unit ?? ""} />} />
               <Scatter name={chart.title} data={data} fill={primaryColor} />
             </ScatterChart>
           ) : chart.type === "radar" ? (
             <RadarChart data={data}>
-              <PolarGrid />
-              <PolarAngleAxis dataKey="label" tick={{ fill: "#64748b", fontSize: 11 }} />
-              <PolarRadiusAxis />
+              <PolarGrid stroke="#426166" />
+              <PolarAngleAxis dataKey="label" tick={{ fill: "#c0d1cc", fontSize: 11 }} />
+              <PolarRadiusAxis tick={{ fill: "#b4c7c2", fontSize: 10 }} axisLine={{ stroke: "#426166" }} />
               <Tooltip content={<ChartTooltip unit={chart.unit ?? ""} />} />
               {series.map((item, index) => <Radar key={item.key} name={item.name ?? item.key} dataKey={item.key} stroke={colors[index % colors.length]} fill={colors[index % colors.length]} fillOpacity={0.22} />)}
               <Legend />
@@ -268,11 +290,11 @@ export default function ChartRenderer({ chart }: { chart: ChartSpec }) {
               <Tooltip content={<ChartTooltip unit={chart.unit ?? ""} />} />
               <Funnel data={data} dataKey="value" nameKey="label" isAnimationActive>
                 {data.map((point, index) => <Cell key={point.label ?? index} fill={colors[index % colors.length]} />)}
-                <LabelList position="right" fill="#334155" stroke="none" dataKey="label" />
+                <LabelList position="right" fill="#d8e5df" stroke="none" dataKey="label" />
               </Funnel>
             </FunnelChart>
           ) : chart.type === "sankey" ? (
-            <Sankey data={{ nodes: chart.nodes ?? [], links: chart.links ?? [] }} nodePadding={24} nodeWidth={16} link={{ stroke: "#94a3b8", strokeOpacity: 0.45 }}>
+            <Sankey data={{ nodes: chart.nodes ?? [], links: chart.links ?? [] }} nodePadding={24} nodeWidth={16} link={{ stroke: "#79ded0", strokeOpacity: 0.45 }}>
               <Tooltip content={<ChartTooltip unit={chart.unit ?? ""} />} />
             </Sankey>
           ) : (
@@ -280,6 +302,29 @@ export default function ChartRenderer({ chart }: { chart: ChartSpec }) {
           )}
         </ResponsiveContainer>
       </div>
+      {tableColumns.length > 0 && (
+        <details className="chart-data-details">
+          <summary>Ver dados em tabela</summary>
+          <p className="chart-data-note">
+            Valores usados no gráfico{chart.unit ? ` · Unidade: ${chart.unit}` : ""}
+          </p>
+          <div className="chart-data-scroll" role="region" aria-label={`Dados de ${chart.title}`} tabIndex={0}>
+            <table>
+              <caption>{chart.title} — dados do gráfico</caption>
+              <thead>
+                <tr>{tableColumns.map((column) => <th key={column} scope="col">{column}</th>)}</tr>
+              </thead>
+              <tbody>
+                {tableRows.map((row, rowIndex) => (
+                  <tr key={rowIndex}>
+                    {tableColumns.map((column) => <td key={column}>{formatChartCell(row[column])}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )}
     </section>
   );
 }

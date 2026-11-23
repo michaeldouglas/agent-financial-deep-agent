@@ -27,7 +27,7 @@ Common rules:
 
 Chart-specific fields:
 
-- `composed`: add `series`, an array of `{ "key": "field", "name": "Label", "type": "bar|line|area" }`. Each data row must contain a finite numeric value for every series key. `type` and `name` are optional; series defaults to bar.
+- `composed`: add `series`, an array of `{ "key": "field", "name": "Label", "type": "bar|line|area" }`. Each data row must contain a finite numeric value for every series key. `type` and `name` are optional; series defaults to bar. Use this representation for several measures sharing one category; the current `bar` renderer reads only the `value` field.
 - `scatter`: each row must contain finite numeric `x` and `y`. Optional `z` controls point size. Set `x_key`, `y_key`, or `z_key` to use alternative field names.
 - `radar`: use `label` for each dimension and `series` entries for each comparable entity, each with a numeric field in every row. With no `series`, the chart uses `value` as its one series.
 - `radialBar`: each row needs a non-negative `value`; labels name the compared values.
